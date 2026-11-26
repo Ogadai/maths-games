@@ -221,4 +221,11 @@ test("a solved fractions problem counts towards the Fractions medals", async ({ 
   await solveCurrentProblem(page);
   await page.goto("/trophies");
   await expect(page.getByRole("listitem", { name: /Fractions Bronze: locked/ })).toContainText("1 / 5");
+  await expect(page.getByRole("listitem", { name: /Top-Heavy Tamer: locked/ })).toContainText("improper fractions");
+  await expect(page.getByRole("listitem", { name: /Top-Heavy Tamer: locked/ })).toContainText("0 / 5");
+  // Fun badges show their progress too (one solve, no hints or mistakes).
+  await expect(page.getByRole("listitem", { name: /No-Hint Hero: locked/ })).toContainText("1 / 10");
+  await expect(page.getByRole("listitem", { name: /Streak Star: locked/ })).toContainText("1 / 5");
+  await expect(page.getByRole("listitem", { name: /Legend Level Cleared: locked/ })).not.toContainText("/");
+  await page.screenshot({ path: `test-results/fractions-trophies-${test.info().project.name}.png`, fullPage: true });
 });

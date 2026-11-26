@@ -24,12 +24,16 @@ export interface SolvedProblem {
   mistakes: number;
   /** The answer had a final remainder. */
   hadRemainder: boolean;
+  /** The answer was an improper fraction, written as a mixed number. */
+  hadMixedNumber?: boolean;
 }
 
 export interface TopicProgress {
   solved: number;
   noHintSolved: number;
   remainderSolved: number;
+  /** Missing in progress saved before this badge existed. */
+  mixedSolved?: number;
   /** Problems solved at each level. */
   byLevel: Partial<Record<Level, number>>;
 }
@@ -51,7 +55,7 @@ export function emptyProgress(): Progress {
 }
 
 export function emptyTopic(): TopicProgress {
-  return { solved: 0, noHintSolved: 0, remainderSolved: 0, byLevel: {} };
+  return { solved: 0, noHintSolved: 0, remainderSolved: 0, mixedSolved: 0, byLevel: {} };
 }
 
 export interface ScoreBreakdown {
@@ -91,6 +95,24 @@ export interface Medal {
   /** How to earn it (shown on locked medals too). */
   description: string;
   earned: (progress: Progress) => boolean;
+  /** How far along a counted medal is, for the "3 / 5" label. Absent for one-off medals. */
+  progress?: (progress: Progress) => MedalProgress;
+}
+
+export interface MedalProgress {
+  have: number;
+  need: number;
+}
+
+/**
+ * A medal earned by reaching a count. The counter and the unlock rule share
+ * one function, so the "3 / 5" label and the unlock can never disagree.
+ */
+function counted(need: number, have: (p: Progress) => number): Pick<Medal, "earned" | "progress"> {
+  return {
+    earned: (p) => have(p) >= need,
+    progress: (p) => ({ have: Math.min(have(p), need), need }),
+  };
 }
 
 export const MEDAL_THRESHOLDS = { bronze: 5, silver: 15, gold: 30 } as const;
@@ -105,7 +127,7 @@ function topicMedals(topic: string, title: string): Medal[] {
       name: `${title} Bronze`,
       emoji: "🥉",
       description: `Solve ${MEDAL_THRESHOLDS.bronze} problems`,
-      earned: (p) => solved(p) >= MEDAL_THRESHOLDS.bronze,
+      ...counted(MEDAL_THRESHOLDS.bronze, solved),
     },
     {
       id: `${topic}:silver`,
@@ -114,7 +136,7 @@ function topicMedals(topic: string, title: string): Medal[] {
       name: `${title} Silver`,
       emoji: "🥈",
       description: `Solve ${MEDAL_THRESHOLDS.silver} problems`,
-      earned: (p) => solved(p) >= MEDAL_THRESHOLDS.silver,
+      ...counted(MEDAL_THRESHOLDS.silver, solved),
     },
     {
       id: `${topic}:gold`,
@@ -123,14 +145,14 @@ function topicMedals(topic: string, title: string): Medal[] {
       name: `${title} Gold`,
       emoji: "🥇",
       description: `Solve ${MEDAL_THRESHOLDS.gold} problems`,
-      earned: (p) => solved(p) >= MEDAL_THRESHOLDS.gold,
+      ...counted(MEDAL_THRESHOLDS.gold, solved),
     },
   ];
 }
 
 const allTopics = (p: Progress) => Object.values(p.topics);
-const total = (p: Progress, field: "noHintSolved" | "remainderSolved") =>
-  allTopics(p).reduce((sum, t) => sum + t[field], 0);
+const total = (p: Progress, field: "noHintSolved" | "remainderSolved" | "mixedSolved") =>
+  allTopics(p).reduce((sum, t) => sum + (t[field] ?? 0), 0);
 
 export const BADGES: Medal[] = [
   {
@@ -139,7 +161,7 @@ export const BADGES: Medal[] = [
     name: "No-Hint Hero",
     emoji: "🦸",
     description: "Solve 10 problems without a hint",
-    earned: (p) => total(p, "noHintSolved") >= 10,
+    ...counted(10, (p) => total(p, "noHintSolved")),
   },
   {
     id: "streak-star",
@@ -147,7 +169,8 @@ export const BADGES: Medal[] = [
     name: "Streak Star",
     emoji: "🌟",
     description: "Solve 5 in a row with no mistakes",
-    earned: (p) => p.bestStreak >= 5,
+    // Best streak, not the current one: that resets on any mistake and would look like lost progress.
+    ...counted(5, (p) => p.bestStreak),
   },
   {
     id: "legend-cleared",
@@ -163,7 +186,15 @@ export const BADGES: Medal[] = [
     name: "Remainder Wrangler",
     emoji: "🤠",
     description: "Solve 5 problems that end with a remainder",
-    earned: (p) => total(p, "remainderSolved") >= 5,
+    ...counted(5, (p) => total(p, "remainderSolved")),
+  },
+  {
+    id: "top-heavy-tamer",
+    tier: "badge",
+    name: "Top-Heavy Tamer",
+    emoji: "🦁",
+    description: "Solve 5 problems with improper fractions",
+    ...counted(5, (p) => total(p, "mixedSolved")),
   },
 ];
 
@@ -188,6 +219,7 @@ export function recordSolve(
     solved: before.solved + 1,
     noHintSolved: before.noHintSolved + (problem.hintsUsed === 0 ? 1 : 0),
     remainderSolved: before.remainderSolved + (problem.hadRemainder ? 1 : 0),
+    mixedSolved: (before.mixedSolved ?? 0) + (problem.hadMixedNumber ? 1 : 0),
     byLevel: { ...before.byLevel, [problem.level]: (before.byLevel[problem.level] ?? 0) + 1 },
   };
   const next: Progress = {

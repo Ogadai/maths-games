@@ -6,7 +6,6 @@ import { MedalIcon } from "@/components/ui/MedalIcon";
 import { TOPICS } from "@/lib/topics";
 import {
   BADGES,
-  MEDAL_THRESHOLDS,
   MEDALS,
   type Medal,
   type Progress,
@@ -39,18 +38,10 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Progress towards a medal, for the "3 / 5" label under locked medals. */
-function medalProgress(medal: Medal, progress: Progress): { have: number; need: number } | null {
-  if (!medal.topic || medal.tier === "badge") return null;
-  return {
-    have: progress.topics[medal.topic]?.solved ?? 0,
-    need: MEDAL_THRESHOLDS[medal.tier],
-  };
-}
-
 function MedalTile({ medal, progress }: { medal: Medal; progress: Progress }) {
   const earned = progress.medals.includes(medal.id);
-  const counter = medalProgress(medal, progress);
+  // The "3 / 5" label under locked medals (one-off medals have no counter).
+  const counter = medal.progress?.(progress);
   return (
     <li
       aria-label={`${medal.name}: ${earned ? "earned" : "locked"}. ${medal.description}.`}
@@ -68,7 +59,7 @@ function MedalTile({ medal, progress }: { medal: Medal; progress: Progress }) {
       <p className="text-sm text-ink-soft font-semibold">{medal.description}</p>
       {!earned && counter && (
         <p className="mt-1 text-sm font-bold text-grape-dark">
-          {Math.min(counter.have, counter.need)} / {counter.need}
+          {counter.have} / {counter.need}
         </p>
       )}
       {earned && <p className="mt-1 text-sm font-bold text-mint-dark">Earned! ✔</p>}

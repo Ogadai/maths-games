@@ -91,11 +91,43 @@ describe("medals", () => {
     expect(solveMany(1, { level: 4 }).progress.medals).toEqual(["legend-cleared"]);
     expect(solveMany(5, { hadRemainder: true, mistakes: 1 }).progress.medals).toContain("remainder-wrangler");
     expect(solveMany(4, { hadRemainder: true }).progress.medals).not.toContain("remainder-wrangler");
+    const mixed = { topic: "fractions", hadMixedNumber: true, mistakes: 1 };
+    expect(solveMany(5, mixed).progress.medals).toContain("top-heavy-tamer");
+    expect(solveMany(4, mixed).progress.medals).not.toContain("top-heavy-tamer");
+  });
+
+  it("counts mixed numbers on progress saved before that badge existed", () => {
+    // Older saves have no mixedSolved field.
+    const old = emptyProgress();
+    old.topics.fractions = { solved: 3, noHintSolved: 0, remainderSolved: 0, byLevel: { 4: 3 } };
+    const { progress } = solveMany(5, { topic: "fractions", hadMixedNumber: true, mistakes: 1 }, old);
+    expect(progress.topics.fractions.mixedSolved).toBe(5);
+    expect(progress.medals).toContain("top-heavy-tamer");
   });
 
   it("keeps each topic's medals separate", () => {
     const { progress } = solveMany(5, { topic: "fractions", hintsUsed: 1, mistakes: 1 });
     expect(progress.medals).toEqual(["fractions:bronze"]);
+  });
+
+  it("shows progress towards counted badges, matching when they unlock", () => {
+    const medal = (id: string) => MEDALS.find((m) => m.id === id)!;
+    // 3 solves with no hints, the 3rd with a mistake: best streak 2.
+    let { progress } = solveMany(2);
+    progress = recordSolve(progress, problem({ mistakes: 1, hadRemainder: true })).progress;
+    expect(medal("no-hint-hero").progress!(progress)).toEqual({ have: 3, need: 10 });
+    expect(medal("streak-star").progress!(progress)).toEqual({ have: 2, need: 5 });
+    expect(medal("remainder-wrangler").progress!(progress)).toEqual({ have: 1, need: 5 });
+    expect(medal("top-heavy-tamer").progress!(progress)).toEqual({ have: 0, need: 5 });
+    expect(medal("bus-stop-division:silver").progress!(progress)).toEqual({ have: 3, need: 15 });
+    expect(medal("legend-cleared").progress).toBeUndefined();
+    // Counters never run past the target, and are full exactly when the medal is earned.
+    const many = solveMany(12).progress;
+    for (const m of MEDALS.filter((x) => x.progress)) {
+      const { have, need } = m.progress!(many);
+      expect(have).toBeLessThanOrEqual(need);
+      expect(have === need).toBe(m.earned(many));
+    }
   });
 
   it("has unique ids", () => {

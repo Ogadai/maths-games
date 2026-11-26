@@ -127,6 +127,7 @@ export function PracticePanel() {
         hintsUsed: next.hintsUsed,
         mistakes: next.mistakes,
         hadRemainder: false,
+        hadMixedNumber: next.solution.mixed.whole > 0,
       });
       // Points are shown by a star flying to the header badge, not read aloud.
       next.award = { score, ...flightPath(boardRef.current) };
