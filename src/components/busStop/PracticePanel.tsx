@@ -195,7 +195,7 @@ export function PracticePanel() {
   };
 
   const levelPicker = (
-    <fieldset className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 justify-center w-full">
+    <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
       <legend className="sr-only">Choose a level to start</legend>
       {BUS_STOP_LEVELS.map((l) => {
         const selected = l.level === level;

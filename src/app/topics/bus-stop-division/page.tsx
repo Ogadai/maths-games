@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BusStopBoard } from "@/components/busStop/BusStopBoard";
 import { PracticePanel } from "@/components/busStop/PracticePanel";
-import { HowItWorks } from "@/components/ui/HowItWorks";
+import { TopicIntro } from "@/components/ui/TopicIntro";
 import { solveBusStop } from "@/lib/maths/busStop";
 
 export const metadata: Metadata = {
@@ -21,18 +21,17 @@ const exampleSteps = [
 export default function BusStopDivisionPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 sm:px-8 pb-12">
-      <header className="py-6 text-center">
-        <p className="text-5xl" aria-hidden="true">
-          🚌
-        </p>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold">Bus Stop Division</h1>
-        <p className="mt-2 text-lg text-ink-soft max-w-2xl mx-auto">
-          The big number waits under the bus stop. The number outside is how many groups we
-          share it into. We go one column at a time, from left to right.
-        </p>
-      </header>
-
-      <HowItWorks topic="bus-stop-division">
+      <TopicIntro
+        topic="bus-stop-division"
+        title="Bus Stop Division"
+        emoji="🚌"
+        summary={
+          <>
+            The big number waits under the bus stop. The number outside is how many groups we
+            share it into. We go one column at a time, from left to right.
+          </>
+        }
+      >
         <div className="flex flex-col md:flex-row items-center gap-8">
           <BusStopBoard
             solution={example}
@@ -49,12 +48,12 @@ export default function BusStopDivisionPage() {
             ))}
           </ol>
         </div>
-      </HowItWorks>
+      </TopicIntro>
 
       <section aria-labelledby="practice-heading">
         <h2
           id="practice-heading"
-          className="font-display text-2xl sm:text-3xl font-semibold mb-4 text-center"
+          className="font-display text-2xl sm:text-3xl font-semibold mb-3 text-center"
         >
           Your turn - choose a level
         </h2>

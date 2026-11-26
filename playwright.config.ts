@@ -5,7 +5,8 @@ export default defineConfig({
   use: { baseURL: "http://localhost:3100" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "tablet", use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } } },
+    { name: "tablet", use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 } } },
+    { name: "phone", use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: "npm run build && npx next start -p 3100",

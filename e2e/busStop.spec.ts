@@ -60,13 +60,24 @@ test("favicon, home-screen icons and manifest are served", async ({ page, reques
 test("'Got it' folds How it works, and the choice survives a reload", async ({ page }) => {
   await page.goto("/topics/bus-stop-division");
   const steps = page.getByText("How many 4s fit into 8?");
+  const summary = page.getByText("The big number waits under the bus stop");
+  const showButton = page.getByRole("button", { name: /Show how it works/ });
   await expect(steps).toBeVisible();
+  await expect(summary).toBeVisible();
+  await expect(showButton).toBeHidden();
+  await page.screenshot({ path: `test-results/intro-open-${test.info().project.name}.png`, fullPage: true });
+
   await page.getByRole("button", { name: /Got it/ }).click();
   await expect(steps).toBeHidden();
+  await expect(summary).toBeHidden();
+  await expect(page.getByRole("heading", { name: "How it works" })).toBeHidden();
   await page.reload();
-  await expect(page.getByRole("button", { name: /Show me again/ })).toBeVisible();
+  await expect(showButton).toBeVisible();
   await expect(steps).toBeHidden();
-  await page.getByRole("button", { name: /Show me again/ }).click();
+  await page.getByRole("button", { name: "Explorer" }).click();
+  await page.screenshot({ path: `test-results/intro-closed-${test.info().project.name}.png`, fullPage: true });
+
+  await showButton.click();
   await expect(steps).toBeVisible();
   await page.reload();
   await expect(steps).toBeVisible();
