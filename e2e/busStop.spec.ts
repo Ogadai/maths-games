@@ -83,6 +83,37 @@ test("'Got it' folds How it works, and the choice survives a reload", async ({ p
   await expect(steps).toBeVisible();
 });
 
+test("sound toggle is remembered across reloads", async ({ page }) => {
+  await page.goto("/topics/bus-stop-division");
+  const toggle = page.getByRole("button", { name: "Sound" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+});
+
+test("Divvy reads messages aloud when sound is on", async ({ page }) => {
+  await page.addInitScript(() => {
+    const spoken: string[] = [];
+    (window as unknown as { spoken: string[] }).spoken = spoken;
+    window.speechSynthesis.speak = (u: SpeechSynthesisUtterance) => {
+      spoken.push(`${u.lang}|${u.text}`);
+    };
+  });
+  await page.goto("/topics/bus-stop-division");
+  await page.getByRole("button", { name: /Warm-up/ }).click();
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken);
+  await expect.poll(spoken).toEqual([expect.stringMatching(/^en-GB\|Let's go! How many \w+ fit into/)]);
+
+  await page.getByRole("button", { name: "Sound" }).click();
+  await page.getByRole("button", { name: /Explorer/ }).click();
+  expect(await spoken()).toHaveLength(1);
+});
+
 for (const level of ["Warm-up", "Explorer", "Champion", "Legend"]) {
   test(`solve a ${level} problem`, async ({ page }) => {
     await page.goto("/topics/bus-stop-division");

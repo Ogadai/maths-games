@@ -1,8 +1,17 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BusStopBoard, type ActiveCell } from "./BusStopBoard";
 import { SpeechBubble } from "@/components/ui/Mascot";
+import { useSoundOn } from "@/components/ui/SoundToggle";
+import {
+  playCelebrate,
+  playCorrect,
+  playOops,
+  speak,
+  stopSpeaking,
+  unlockAudio,
+} from "@/lib/sound";
 import { solveBusStop, type BusStopSolution, type BusStopStep } from "@/lib/maths/busStop";
 import {
   BUS_STOP_LEVELS,
@@ -155,12 +164,22 @@ export function PracticePanel() {
   const [shakeKey, setShakeKey] = useState(0);
   const [showTable, setShowTable] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [soundOn] = useSoundOn();
+
+  // Don't let Divvy keep talking after the player leaves the page.
+  useEffect(() => stopSpeaking, []);
 
   const start = (lvl: BusStopLevel) => {
+    const fresh = newSession(lvl);
     setLevel(lvl);
-    setSession(newSession(lvl));
+    setSession(fresh);
     setInput("");
     setShowTable(false);
+    if (soundOn) {
+      // This click is the user action browsers need before they'll play audio.
+      unlockAudio();
+      speak(fresh.message);
+    }
   };
 
   const submit = (raw: string) => {
@@ -174,6 +193,12 @@ export function PracticePanel() {
       }
     }
     if (next.done) void celebrate();
+    if (soundOn) {
+      if (next.tone === "oops") playOops();
+      else if (next.done) playCelebrate();
+      else playCorrect();
+      speak(next.message);
+    }
     setSession(next);
     setInput("");
     // Keep the keyboard open on tablets as the active cell moves.

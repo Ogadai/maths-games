@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import Link from "next/link";
 import { Mascot } from "@/components/ui/Mascot";
+import { SoundToggle } from "@/components/ui/SoundToggle";
 import "./globals.css";
 
 const fredoka = Fredoka({ variable: "--font-fredoka", subsets: ["latin"] });
@@ -22,7 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
-        <header className="px-4 sm:px-8 py-3">
+        <header className="px-4 sm:px-8 py-3 flex items-center justify-between gap-3">
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-2xl px-2 py-1 focus-visible:outline-4 focus-visible:outline-grape"
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               SumCraft <span className="text-ink-soft font-medium">- Maths Games</span>
             </span>
           </Link>
+          <SoundToggle />
         </header>
         <main className="flex-1 flex flex-col">{children}</main>
         <footer className="py-6 text-center text-sm text-ink-soft">
