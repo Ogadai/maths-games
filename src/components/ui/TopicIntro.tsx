@@ -49,7 +49,7 @@ export function TopicIntro({ topic, title, emoji, summary, children }: Props) {
         <section
           id={panelId}
           aria-labelledby={`${panelId}-heading`}
-          className="rounded-3xl border-4 border-ink/10 bg-cloud/80 p-5 sm:p-6 mb-6"
+          className="rounded-3xl border-4 border-ink/10 bg-cloud/80 p-3 sm:p-6 mb-6"
         >
           <h2 id={`${panelId}-heading`} className="font-display text-2xl sm:text-3xl font-semibold">
             How it works

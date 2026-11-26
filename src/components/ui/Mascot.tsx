@@ -30,9 +30,12 @@ export function Mascot({ className = "" }: { className?: string }) {
 export function SpeechBubble({
   children,
   tone = "neutral",
+  compact = false,
 }: {
   children: React.ReactNode;
   tone?: "neutral" | "success" | "oops";
+  /** Smaller mascot and text, for tight layouts such as phones. */
+  compact?: boolean;
 }) {
   const toneClass = {
     neutral: "bg-cloud border-ink",
@@ -40,12 +43,16 @@ export function SpeechBubble({
     oops: "bg-coral/10 border-coral",
   }[tone];
   return (
-    <div className="flex items-end gap-3">
-      <Mascot className="w-16 h-16 shrink-0 animate-float" />
+    <div className={`flex items-end ${compact ? "gap-2" : "gap-3"}`}>
+      <Mascot
+        className={`shrink-0 animate-float ${compact ? "w-10 h-10 sm:w-14 sm:h-14" : "w-16 h-16"}`}
+      />
       <div
         role="status"
         aria-live="polite"
-        className={`relative rounded-3xl border-4 px-5 py-3 text-lg font-semibold ${toneClass}`}
+        className={`relative rounded-3xl border-4 font-semibold ${toneClass} ${
+          compact ? "px-3 py-1.5 text-base sm:px-4 sm:py-2 sm:text-lg leading-snug" : "px-5 py-3 text-lg"
+        }`}
       >
         {children}
       </div>

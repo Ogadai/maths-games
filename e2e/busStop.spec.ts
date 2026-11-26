@@ -1,8 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { solveBusStop } from "../src/lib/maths/busStop";
 
+/** The practice section, so "How it works" (which also has a board and a speech bubble) doesn't get in the way. */
+const practice = (page: Page) => page.getByRole("region", { name: /Your turn/ });
+
 async function solveCurrentProblem(page: Page, opts: { makeMistake?: boolean } = {}) {
-  const label = await page.getByRole("group", { name: /divided by/ }).last().getAttribute("aria-label");
+  const label = await practice(page).getByRole("group", { name: /divided by/ }).getAttribute("aria-label");
   const [, dividend, divisor] = label!.match(/(\d+) divided by (\d+)/)!;
   const solution = solveBusStop(Number(dividend), Number(divisor));
   const answerBox = (name: string) => page.getByRole("textbox", { name });
@@ -11,14 +14,16 @@ async function solveCurrentProblem(page: Page, opts: { makeMistake?: boolean } =
     await box.fill(String(value));
     // Leftovers for divisors 11 and 12 may have two digits, so they need the Check button.
     if (name !== "Answer digit" && solution.divisor > 10) {
-      await page.getByRole("button", { name: /Check/ }).click();
+      await practice(page).getByRole("button", { name: /Check/ }).click();
     }
   };
 
   for (const [i, step] of solution.steps.entries()) {
     if (opts.makeMistake && i === 0 && step.quotientDigit < 9) {
       await answerBox("Answer digit").fill(String(step.quotientDigit + 1));
-      await expect(page.getByRole("status")).toContainText("Too big");
+      await expect(practice(page).getByRole("status")).toContainText("Too big");
+      // The visualiser shows why: not enough blocks for every bus to get that many.
+      await expect(practice(page).getByText(/won't fit! You'd need/)).toBeVisible();
     }
     await type("Answer digit", step.quotientDigit);
     const isLast = i === solution.steps.length - 1;
@@ -59,7 +64,7 @@ test("favicon, home-screen icons and manifest are served", async ({ page, reques
 
 test("'Got it' folds How it works, and the choice survives a reload", async ({ page }) => {
   await page.goto("/topics/bus-stop-division");
-  const steps = page.getByText("How many 4s fit into 8?");
+  const steps = page.getByText("Let's share 852 between 4 buses");
   const summary = page.getByText("The big number waits under the bus stop");
   const showButton = page.getByRole("button", { name: /Show how it works/ });
   await expect(steps).toBeVisible();
@@ -120,7 +125,7 @@ for (const level of ["Warm-up", "Explorer", "Champion", "Legend"]) {
     await page.getByRole("button", { name: new RegExp(level) }).click();
     await page.screenshot({ path: `test-results/${level}-start-${test.info().project.name}.png`, fullPage: true });
     const solution = await solveCurrentProblem(page, { makeMistake: level === "Champion" });
-    await expect(page.getByRole("status")).toContainText(
+    await expect(practice(page).getByRole("status")).toContainText(
       `${solution.dividend} ÷ ${solution.divisor} = ${solution.quotient}`,
     );
     await page.screenshot({ path: `test-results/${level}-done-${test.info().project.name}.png`, fullPage: true });
@@ -128,3 +133,109 @@ for (const level of ["Warm-up", "Explorer", "Champion", "Legend"]) {
     await expect(page.getByRole("textbox", { name: "Answer digit" })).toBeVisible();
   });
 }
+
+test("Watch mode steps through 5432 ÷ 7, forward and back, in sync with the board", async ({ page }) => {
+  await page.goto("/topics/bus-stop-division");
+  const intro = page.getByRole("region", { name: "How it works" });
+  await intro.getByRole("button", { name: "5432 ÷ 7" }).click();
+  const narration = intro.getByRole("status");
+  const board = intro.getByRole("group", { name: "5432 divided by 7" });
+  const forward = intro.getByRole("button", { name: "Step forward" });
+  const steps = [
+    // Board text reads: answer digits, divisor, then each column's carry and digit.
+    { say: "Let's share 5432 between 7 buses", board: "75432" },
+    { say: "Share 5 thousands between 7 buses? Not enough for one each, so each bus gets 0.", board: "075432" },
+    { say: "5 thousands left over, so swap them for 50 hundreds. Now we have 54 hundreds.", board: "0755432" },
+    { say: "Share 54 hundreds between 7 buses: each bus gets 7. (7 × 7 = 49) 5 left over.", board: "07755432" },
+    { say: "5 hundreds left over, so swap them for 50 tens. Now we have 53 tens." },
+    { say: "Share 53 tens between 7 buses: each bus gets 7." },
+    { say: "4 tens left over, so swap them for 40 ones. Now we have 42 ones." },
+    { say: "Share 42 ones between 7 buses: each bus gets 6. (7 × 6 = 42) Nothing left over!" },
+    { say: "Every bus carries 776. So 5432 ÷ 7 = 776!", board: "077675545342" },
+  ];
+  for (const [i, step] of steps.entries()) {
+    if (i > 0) await forward.click();
+    await expect(narration).toContainText(step.say);
+    if (step.board) await expect(board).toHaveText(step.board);
+    if (i === 3 || i === 4) {
+      await page.waitForTimeout(2500); // let the animation settle for the screenshot
+      await intro.getByRole("img").screenshot({ path: `test-results/watch-step${i}-${test.info().project.name}.png` });
+    }
+  }
+  await expect(forward).toBeDisabled();
+  await intro.getByRole("button", { name: "Step back" }).click();
+  await expect(narration).toContainText(steps[7].say);
+  await expect(board).toHaveText("077675545342");
+});
+
+test("Watch mode plays by itself and can use your own problem", async ({ page }) => {
+  await page.goto("/topics/bus-stop-division");
+  // Headless Chrome never finishes speaking, so Divvy would wait for the fallback timer.
+  await page.getByRole("button", { name: "Sound" }).click();
+  const intro = page.getByRole("region", { name: "How it works" });
+  await intro.getByRole("button", { name: /My own/ }).click();
+  await intro.getByRole("textbox", { name: "Number to share" }).fill("96");
+  await intro.getByRole("textbox", { name: "Number of buses" }).fill("4");
+  await intro.getByRole("button", { name: /Watch it/ }).click();
+  await expect(intro.getByRole("status")).toContainText("Let's share 96 between 4 buses");
+  await intro.getByRole("button", { name: "Speed 1 times" }).click();
+  await intro.getByRole("button", { name: "Play" }).click();
+  await expect(intro.getByRole("status")).toContainText("96 ÷ 4 = 24", { timeout: 30_000 });
+  await expect(intro.getByRole("button", { name: "Play" })).toHaveText(/Replay/);
+});
+
+test("the visualiser and the board fit on screen together", async ({ page }) => {
+  await page.goto("/topics/bus-stop-division");
+  await page.getByRole("button", { name: /Got it/ }).click();
+  await practice(page).getByRole("button", { name: /Legend/ }).click();
+  await page.waitForTimeout(1200); // smooth scroll + blocks popping in
+  const viewport = page.viewportSize()!;
+  for (const target of [
+    practice(page).getByRole("img"),
+    practice(page).getByRole("group", { name: /divided by/ }),
+    practice(page).getByRole("textbox", { name: "Answer digit" }),
+    practice(page).getByRole("button", { name: /Hint/ }),
+  ]) {
+    const box = (await target.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(-1);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+  }
+  expect(await practice(page).getByRole("img").evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(150);
+
+  // A wrong answer is shown in the picture too.
+  const label = await practice(page).getByRole("group", { name: /divided by/ }).getAttribute("aria-label");
+  const [, dividend, divisor] = label!.match(/(\d+) divided by (\d+)/)!;
+  const first = solveBusStop(Number(dividend), Number(divisor)).steps[0];
+  const wrong = first.quotientDigit === 9 ? 8 : first.quotientDigit + 1;
+  await practice(page).getByRole("textbox", { name: "Answer digit" }).fill(String(wrong));
+  await expect(practice(page).getByText(/won't fit!|still waiting/)).toBeVisible();
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `test-results/practice-fit-${test.info().project.name}.png` });
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("answers are typed on Divvy's number pad", async ({ page }) => {
+    await page.goto("/topics/bus-stop-division");
+    await page.getByRole("button", { name: /Got it/ }).click();
+    await practice(page).getByRole("button", { name: /Explorer/ }).click();
+    const pad = practice(page).getByRole("group", { name: "Number pad" });
+    await expect(pad).toBeVisible();
+    await expect(practice(page).getByRole("textbox", { name: "Answer digit" })).toHaveAttribute("inputmode", "none");
+
+    const label = await practice(page).getByRole("group", { name: /divided by/ }).getAttribute("aria-label");
+    const [, dividend, divisor] = label!.match(/(\d+) divided by (\d+)/)!;
+    const first = solveBusStop(Number(dividend), Number(divisor)).steps[0];
+    await page.waitForTimeout(1000); // let the workspace finish scrolling into view
+    await pad.getByRole("button", { name: String(first.quotientDigit), exact: true }).tap();
+    await expect(practice(page).getByRole("status")).toContainText(/Yes!|Spot on/);
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: `test-results/touch-${test.info().project.name}.png` });
+
+    const viewport = page.viewportSize()!;
+    const box = (await pad.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+  });
+});

@@ -157,11 +157,15 @@ if (speechSupported()) {
   });
 }
 
-/** Read a message aloud, interrupting anything Divvy was already saying. */
-export function speak(text: string) {
-  if (!speechSupported()) return;
+/**
+ * Read a message aloud, interrupting anything Divvy was already saying.
+ * Resolves when Divvy stops talking (or after a generous estimate, because
+ * some browsers never fire the "end" event).
+ */
+export function speak(text: string): Promise<void> {
+  if (!speechSupported()) return Promise.resolve();
   const spoken = toSpeech(text);
-  if (!spoken) return;
+  if (!spoken) return Promise.resolve();
   const synth = window.speechSynthesis;
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(spoken);
@@ -170,7 +174,15 @@ export function speak(text: string) {
   if (voice) utterance.voice = voice;
   utterance.rate = 0.95;
   utterance.pitch = 1.1;
-  synth.speak(utterance);
+  return new Promise((resolve) => {
+    const words = spoken.split(" ").length;
+    const fallback = window.setTimeout(resolve, 1500 + words * 450);
+    utterance.onend = utterance.onerror = () => {
+      window.clearTimeout(fallback);
+      resolve();
+    };
+    synth.speak(utterance);
+  });
 }
 
 export function stopSpeaking() {
