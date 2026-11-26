@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-ink: #1e2a4a;
+  --color-ink-soft: #4a5578;
+  --color-sky: #e8f4ff;
+  --color-cloud: #ffffff;
+  --color-sunny: #ffc93c;
+  --color-sunny-dark: #e0a800;
+  --color-coral: #ff6b6b;
+  --color-mint: #2ec4b6;
+  --color-mint-dark: #1a9488;
+  --color-grape: #7b5cff;
+  --color-grape-dark: #5a3fd6;
+  --color-bubblegum: #ff8fcf;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-display: var(--font-fredoka), "Comic Sans MS", system-ui, sans-serif;
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --animate-wiggle: wiggle 0.4s ease-in-out;
+  --animate-pop: pop 0.35s ease-out;
+  --animate-float: float 3s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px) rotate(-3deg); }
+    40% { transform: translateX(6px) rotate(3deg); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    70% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-sky);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgb(255 201 60 / 0.18) 0 60px, transparent 61px),
+    radial-gradient(circle at 90% 10%, rgb(123 92 255 / 0.12) 0 90px, transparent 91px),
+    radial-gradient(circle at 80% 80%, rgb(46 196 182 / 0.14) 0 70px, transparent 71px);
+  background-attachment: fixed;
+  color: var(--color-ink);
+}
+
+/* Remove number input spinners: kids type digits, arrows just get in the way. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
