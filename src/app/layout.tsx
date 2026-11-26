@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import Link from "next/link";
+import { InstallButton, InstallPrompt } from "@/components/ui/InstallApp";
 import { Mascot } from "@/components/ui/Mascot";
+import { INSTALL_CAPTURE_SCRIPT } from "@/lib/installScript";
 import { MedalModal } from "@/components/ui/MedalModal";
 import { PointsBadge } from "@/components/ui/PointsBadge";
 import { RewardsHydrator } from "@/components/ui/RewardsHydrator";
@@ -26,6 +28,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
+        {/* Catch the browser's install offer before React loads, so it isn't missed. */}
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_CAPTURE_SCRIPT }} />
         <header className="px-3 sm:px-8 py-3 flex items-center justify-between gap-2 sm:gap-3">
           <Link
             href="/"
@@ -39,12 +43,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <PointsBadge />
+            <InstallButton />
             <SoundToggle />
           </div>
         </header>
         <main className="flex-1 flex flex-col">{children}</main>
         <RewardsHydrator />
         <MedalModal />
+        <InstallPrompt />
         <footer className="py-6 text-center text-sm text-ink-soft">
           Made with 🧡 for curious mathematicians
         </footer>

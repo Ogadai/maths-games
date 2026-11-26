@@ -5,6 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "SumCraft - Maths Games",
     short_name: "SumCraft",
     description: "Fun, interactive maths missions for curious minds aged 8 to 14.",
+    id: "/",
     start_url: "/",
     display: "standalone",
     background_color: "#E8F4FF",
