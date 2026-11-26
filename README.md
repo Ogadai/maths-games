@@ -1,4 +1,4 @@
-# Maths Quest
+# SumCraft - Maths Games
 
 A fun maths tutor for 8 to 14 year olds. Each page teaches one concept with an interactive visualisation and randomly generated practice problems. See [projectPlan.md](projectPlan.md) for the roadmap.
 

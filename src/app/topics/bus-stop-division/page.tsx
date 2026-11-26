@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { BusStopBoard } from "@/components/busStop/BusStopBoard";
 import { PracticePanel } from "@/components/busStop/PracticePanel";
+import { HowItWorks } from "@/components/ui/HowItWorks";
 import { solveBusStop } from "@/lib/maths/busStop";
 
 export const metadata: Metadata = {
-  title: "Bus Stop Division · Maths Quest",
+  title: "Bus Stop Division · SumCraft",
   description: "Learn short division one column at a time.",
 };
 
@@ -31,13 +32,7 @@ export default function BusStopDivisionPage() {
         </p>
       </header>
 
-      <section
-        aria-labelledby="how-heading"
-        className="rounded-3xl border-4 border-ink/10 bg-cloud/80 p-6 sm:p-8 mb-10"
-      >
-        <h2 id="how-heading" className="font-display text-2xl sm:text-3xl font-semibold mb-4">
-          How it works
-        </h2>
+      <HowItWorks topic="bus-stop-division">
         <div className="flex flex-col md:flex-row items-center gap-8">
           <BusStopBoard
             solution={example}
@@ -54,14 +49,14 @@ export default function BusStopDivisionPage() {
             ))}
           </ol>
         </div>
-      </section>
+      </HowItWorks>
 
       <section aria-labelledby="practice-heading">
         <h2
           id="practice-heading"
           className="font-display text-2xl sm:text-3xl font-semibold mb-4 text-center"
         >
-          Your turn!
+          Your turn - choose a level
         </h2>
         <PracticePanel />
       </section>

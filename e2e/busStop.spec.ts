@@ -35,13 +35,28 @@ test("landing page links to Bus Stop Division", async ({ page }) => {
   await page.screenshot({ path: `test-results/landing-${test.info().project.name}.png`, fullPage: true });
   await page.getByRole("link", { name: /Bus Stop Division/ }).first().click();
   await expect(page.getByRole("heading", { name: "Bus Stop Division", level: 1 })).toBeVisible();
+  await expect(page.getByText("Coming soon")).toHaveCount(0);
+});
+
+test("'Got it' folds How it works, and the choice survives a reload", async ({ page }) => {
+  await page.goto("/topics/bus-stop-division");
+  const steps = page.getByText("How many 4s fit into 8?");
+  await expect(steps).toBeVisible();
+  await page.getByRole("button", { name: /Got it/ }).click();
+  await expect(steps).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Show me again/ })).toBeVisible();
+  await expect(steps).toBeHidden();
+  await page.getByRole("button", { name: /Show me again/ }).click();
+  await expect(steps).toBeVisible();
+  await page.reload();
+  await expect(steps).toBeVisible();
 });
 
 for (const level of ["Warm-up", "Explorer", "Champion", "Legend"]) {
   test(`solve a ${level} problem`, async ({ page }) => {
     await page.goto("/topics/bus-stop-division");
     await page.getByRole("button", { name: new RegExp(level) }).click();
-    await page.getByRole("button", { name: /Give me a problem/ }).click();
     await page.screenshot({ path: `test-results/${level}-start-${test.info().project.name}.png`, fullPage: true });
     const solution = await solveCurrentProblem(page, { makeMistake: level === "Champion" });
     await expect(page.getByRole("status")).toContainText(

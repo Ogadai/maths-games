@@ -29,7 +29,8 @@ export default function Home() {
           Missions
         </h2>
         <ul className="grid gap-5 sm:grid-cols-2">
-          {TOPICS.map((topic) => {
+          {/* "Coming soon" topics stay in the registry but are hidden for now. */}
+          {TOPICS.filter((topic) => topic.available).map((topic) => {
             const card = (
               <div
                 className={`h-full rounded-3xl border-4 border-ink p-6 ${topic.colour} ${

@@ -1,4 +1,4 @@
-# Plan: Maths Tutor Web App ("Maths Quest") — Next.js on Vercel
+# Plan: Maths Tutor Web App ("SumCraft - Maths Games") — Next.js on Vercel
 
 ## Context
 Build a fun, child-friendly (ages 8–14) maths tutor where each page teaches **one concept** through a custom, interactive visualisation. Students practise on randomly generated problems and earn rewards (points, medals, a joke). First concept: **Bus Stop (short) division**. `c:\Code\maths-games` is currently empty and not a git repo, so this is greenfield.

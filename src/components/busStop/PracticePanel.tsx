@@ -149,14 +149,14 @@ async function celebrate() {
 }
 
 export function PracticePanel() {
-  const [level, setLevel] = useState<BusStopLevel>(1);
+  const [level, setLevel] = useState<BusStopLevel | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [input, setInput] = useState("");
   const [shakeKey, setShakeKey] = useState(0);
   const [showTable, setShowTable] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const start = (lvl: BusStopLevel = level) => {
+  const start = (lvl: BusStopLevel) => {
     setLevel(lvl);
     setSession(newSession(lvl));
     setInput("");
@@ -196,7 +196,7 @@ export function PracticePanel() {
 
   const levelPicker = (
     <fieldset className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 justify-center w-full">
-      <legend className="sr-only">Choose a level</legend>
+      <legend className="sr-only">Choose a level to start</legend>
       {BUS_STOP_LEVELS.map((l) => {
         const selected = l.level === level;
         return (
@@ -204,7 +204,7 @@ export function PracticePanel() {
             key={l.level}
             type="button"
             aria-pressed={selected}
-            onClick={() => (session ? start(l.level) : setLevel(l.level))}
+            onClick={() => start(l.level)}
             className={`rounded-2xl border-4 px-4 py-2 text-left transition focus-visible:outline-4 focus-visible:outline-grape ${
               selected
                 ? "border-grape bg-grape text-white shadow-[0_4px_0_var(--color-grape-dark)]"
@@ -223,19 +223,8 @@ export function PracticePanel() {
     </fieldset>
   );
 
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center gap-6">
-        {levelPicker}
-        <button
-          type="button"
-          onClick={() => start()}
-          className="rounded-2xl bg-coral px-10 py-4 font-display text-2xl font-semibold text-white shadow-[0_6px_0_#c94848] transition hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#c94848] focus-visible:outline-4 focus-visible:outline-grape"
-        >
-          Give me a problem! 🚌
-        </button>
-      </div>
-    );
+  if (!session || level === null) {
+    return <div className="flex flex-col items-center gap-6">{levelPicker}</div>;
   }
 
   const kind = session.active?.kind;
@@ -317,7 +306,7 @@ export function PracticePanel() {
           <button
             type="button"
             autoFocus
-            onClick={() => start()}
+            onClick={() => start(level)}
             className="rounded-2xl bg-coral px-8 py-4 font-display text-2xl font-semibold text-white shadow-[0_6px_0_#c94848] animate-pop hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#c94848] focus-visible:outline-4 focus-visible:outline-grape"
           >
             Next problem ➜
