@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRng } from "@/lib/random";
-import { gcd, solveFraction, type FractionProblem } from "./fractions";
+import { gcd, lcm, solveFraction, type FractionProblem } from "./fractions";
 import { generateFractionProblem, type FractionLevel } from "./fractionGenerator";
 import { buildFractionScene, practiceBeatIndex } from "./fractionScene";
 import {
@@ -96,11 +96,40 @@ describe("wrong answers", () => {
     expect(s.ask).toBe("den");
   });
 
-  it("is gentle about the lowest common denominator", () => {
-    const s = applyAnswer(start({ a: 1, b: 2, c: 1, d: 4, op: "+" }), 4);
+  it("switches to strips when given a smaller common denominator", () => {
+    let s = applyAnswer(start({ a: 1, b: 2, c: 1, d: 4, op: "+" }), 4);
+    expect(s.tone).toBe("success");
+    expect(s.mistakes).toBe(0);
+    expect(s.solution).toMatchObject({ mode: "strips", denominator: 4 });
+    expect(s.ask).toBe("nA");
+    expect(hintFor(s)).toContain("Each half is now 2 pieces");
+    s = applyAnswer(s, 3);
+    expect(s.message).toContain("Each half is now 2 pieces");
+    const { state, steps } = solveFully(applyAnswer(s, 2));
+    expect(steps).toEqual(["nB", "total", "simplest"]);
+    expect(state.message).toContain("3 quarters");
+    expect(practiceBoard(state).lines[1]).toEqual({ terms: [{ n: 2, d: 4 }, { n: 1, d: 4 }], op: "+" });
+  });
+
+  it("solves every problem using the smallest common denominator too", () => {
+    for (const level of [2, 3, 4] as FractionLevel[]) {
+      const rng = createRng(level * 31);
+      for (let i = 0; i < 40; i++) {
+        const p = generateFractionProblem(level, rng);
+        const small = lcm(p.b, p.d);
+        const after = applyAnswer(start(p), small);
+        expect(after.tone).not.toBe("oops");
+        if (small < p.b * p.d) expect(after.solution.mode).toBe("strips");
+        expect(solveFully(after).state.ask).toBe("done");
+      }
+    }
+  });
+
+  it("nudges towards fewer pieces for a bigger common denominator", () => {
+    const s = applyAnswer(start({ a: 1, b: 2, c: 1, d: 3, op: "+" }), 12);
     expect(s.tone).toBe("neutral");
     expect(s.mistakes).toBe(0);
-    expect(s.message).toContain("2 × 4");
+    expect(s.ask).toBe("den");
   });
 
   it("rejects a glue size that doesn't fit", () => {

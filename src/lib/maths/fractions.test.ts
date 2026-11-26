@@ -35,6 +35,18 @@ describe("solveFraction", () => {
     expect(s.simplest).toEqual({ whole: 1, n: 1, d: 4 });
   });
 
+  it("cuts both trays into strips of a smaller common denominator when asked", () => {
+    const s = solveFraction({ a: 1, b: 2, c: 1, d: 4, op: "+" }, 4);
+    expect(s).toMatchObject({ mode: "strips", rows: 1, cols: 4, denominator: 4, nA: 2, nB: 1, total: 3 });
+    const t = solveFraction({ a: 5, b: 6, c: 3, d: 4, op: "+" }, 12);
+    expect(t).toMatchObject({ mode: "strips", denominator: 12, nA: 10, nB: 9, total: 19 });
+    expect(t.mixed).toEqual({ whole: 1, n: 7, d: 12 });
+    // b × d (or anything that isn't a smaller common denominator) keeps the grid.
+    expect(solveFraction({ a: 1, b: 2, c: 1, d: 4, op: "+" }, 8).mode).toBe("grid");
+    expect(solveFraction({ a: 1, b: 2, c: 1, d: 4, op: "+" }, 6).mode).toBe("grid");
+    expect(solveFraction({ a: 1, b: 2, c: 1, d: 3, op: "+" }).mode).toBe("grid");
+  });
+
   it("handles an answer of exactly 1", () => {
     const s = solveFraction({ a: 1, b: 2, c: 1, d: 2, op: "+" });
     expect(s.mixed).toEqual({ whole: 1, n: 0, d: 2 });

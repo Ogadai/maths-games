@@ -65,6 +65,29 @@ describe("buildFractionScene", () => {
     expect(r2.label).toEqual({ kind: "fraction", n: 1, d: 4 });
   });
 
+  it("turns tray 2 round, then cuts both trays into strips, for a smaller common denominator", () => {
+    const s = solveFraction({ a: 5, b: 6, c: 3, d: 4, op: "+" }, 12);
+    const sc = buildFractionScene(s, watchGlues(s));
+    expect(kinds(sc)).toEqual(["intro", "turn", "cut", "count", "combine", "overflow", "finish"]);
+    const b = (frame: number) => sc.frames[frame].trays.find((t) => t.id === "B")!;
+    const strawberry = (frame: number) => sc.frames[frame].pieces.filter((p) => p.topping === "strawberry");
+    // Tray 2 starts as 4 rows with 3 shaded, all pieces lying in the top 3 rows...
+    expect([b(0).cols, b(0).rows]).toEqual([1, 4]);
+    for (const p of strawberry(0)) expect(p.y + p.h).toBeLessThanOrEqual(b(0).y + (b(0).h * 3) / 4 + 0.001);
+    // ...then turns into 4 columns, with the pieces in the left 3.
+    expect([b(1).cols, b(1).rows]).toEqual([4, 1]);
+    for (const p of strawberry(1)) {
+      expect(p.h).toBeCloseTo(b(1).h);
+      expect(p.x + p.w).toBeLessThanOrEqual(b(1).x + (b(1).w * 3) / 4 + 0.001);
+    }
+    // Then every tray is cut into 12 strips.
+    expect(sc.frames[2].trays.every((t) => t.cols === 12 && t.rows === 1)).toBe(true);
+    expect(narrate(sc, 1)).toContain("6 and 4 both go into 12");
+    expect(narrate(sc, 2)).toContain("each sixth into 2 and each quarter into 3");
+    expect(narrate(sc, 3)).toContain("5 sixths = 10 twelfths");
+    expect(practiceBeatIndex(sc, "nA")).toBe(2);
+  });
+
   it("keeps pieces inside their trays without overlapping, for every level", () => {
     for (const level of [1, 2, 3, 4] as FractionLevel[]) {
       const rng = createRng(level);

@@ -7,9 +7,10 @@ import {
   factorsOf,
   fractionWords as fw,
   gcd,
-  lcm,
+  isSmallerCommonDenominator,
   mixedWords,
   pieceName,
+  solveFraction,
   type FractionSolution,
 } from "./fractions";
 import type { BoardLine, FractionAsk, SlotPath } from "./fractionScene";
@@ -149,13 +150,21 @@ export function applyAnswer(s: PracticeState, value: number): PracticeState {
           ask: "nA",
           message: `Yes! ${b} × ${d} = ${D} pieces in each tray. How many pieces is ${fw(a, b)} now?`,
         });
-      const small = lcm(b, d);
-      if (value === small && small !== D)
-        // Not wrong, just not what the tray cut gives, so no mistake is counted.
+      if (isSmallerCommonDenominator(sol.problem, value)) {
+        // A smaller common denominator works too: switch to cutting both trays into strips.
+        return correct(s, {
+          solution: solveFraction(sol.problem, value),
+          den: value,
+          ask: "nA",
+          message: `Yes, clever! ${b} and ${d} both go into ${value}. Turn tray 2 round and cut both trays into ${value} strips. How many pieces is ${fw(a, b)} now?`,
+        });
+      }
+      if (value > D && value % b === 0 && value % d === 0)
+        // Not wrong, just more pieces than we need, so no mistake is counted.
         return {
           ...s,
           tone: "neutral",
-          message: `${small} works too, clever! But cutting both trays both ways makes ${b} × ${d} pieces. How many is that?`,
+          message: `${value} works, but that's lots of tiny pieces! Try a smaller number that ${b} and ${d} both go into.`,
         };
       return wrong(
         s,
@@ -170,7 +179,7 @@ export function applyAnswer(s: PracticeState, value: number): PracticeState {
           ask: "nB",
           message: `Yes! ${fw(a, b)} = ${fw(sol.nA, D)}. And how many pieces is ${fw(c, d)}?`,
         });
-      return wrong(s, `Not quite. Each ${pieceName(b)} is now ${d} pieces. Count the caramel pieces!`, { kind: "strip" });
+      return wrong(s, `Not quite. Each ${pieceName(b)} is now ${D / b} pieces. Count the caramel pieces!`, { kind: "strip" });
     case "nB":
       if (value === sol.nB)
         return correct(s, {
@@ -178,7 +187,7 @@ export function applyAnswer(s: PracticeState, value: number): PracticeState {
           ask: "total",
           message: `Great! ${fw(c, d)} = ${fw(sol.nB, D)}. Now ${op === "+" ? "add them" : "take them away"}: how many pieces ${opVerb(sol)}?`,
         });
-      return wrong(s, `Not quite. Each ${pieceName(d)} is now ${b} pieces. Count the strawberry pieces!`, { kind: "row" });
+      return wrong(s, `Not quite. Each ${pieceName(d)} is now ${D / d} pieces. Count the strawberry pieces!`, { kind: "row" });
     case "total": {
       if (value !== sol.total) {
         const [x, y] = sol.sameDenominator ? [a, c] : [sol.nA, sol.nB];
@@ -254,11 +263,15 @@ export function hintFor(s: PracticeState): string {
   const g = s.glues.at(-1);
   switch (s.ask) {
     case "den":
-      return `Tray 1 is cut into ${b} columns, tray 2 into ${d} rows. Cut both ways: ${b} × ${d} = ?`;
-    case "nA":
-      return `Each ${pieceName(b)} is now ${d} pieces. ${a} × ${d} = ?`;
-    case "nB":
-      return `Each ${pieceName(d)} is now ${b} pieces. ${c} × ${b} = ?`;
+      return `Tray 1 is cut into ${b} columns, tray 2 into ${d} rows. Cut both ways: ${b} × ${d} = ? (Or any smaller number that ${b} and ${d} both go into!)`;
+    case "nA": {
+      const per = sol.denominator / b;
+      return `Each ${pieceName(b)} is now ${per} pieces. ${a} × ${per} = ?`;
+    }
+    case "nB": {
+      const per = sol.denominator / d;
+      return `Each ${pieceName(d)} is now ${per} pieces. ${c} × ${per} = ?`;
+    }
     case "total":
       return sol.sameDenominator ? `${a} ${sign} ${c} = ?` : `${sol.nA} ${sign} ${sol.nB} = ?`;
     case "whole":

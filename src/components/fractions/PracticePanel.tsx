@@ -355,10 +355,10 @@ function PracticeWorkspace({
       caption = { text: "Here are the trays cut both ways. Count the pieces in one tray 👆", tone: "oops" };
     } else if (whatIf.kind === "strip") {
       frame = highlightFrame(scene, shown, scene.firstStripA, "strip");
-      caption = { text: `One ${pieceName(b)} is now ${d} pieces 👆`, tone: "oops" };
+      caption = { text: `One ${pieceName(b)} is now ${solution.denominator / b} pieces 👆`, tone: "oops" };
     } else if (whatIf.kind === "row") {
       frame = highlightFrame(scene, shown, scene.firstRowB, "row");
-      caption = { text: `One ${pieceName(d)} is now ${b} pieces 👆`, tone: "oops" };
+      caption = { text: `One ${pieceName(d)} is now ${solution.denominator / d} pieces 👆`, tone: "oops" };
     } else {
       const bad = badGlueFrame(scene, shown, whatIf.k);
       frame = bad.frame;

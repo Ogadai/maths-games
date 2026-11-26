@@ -31,6 +31,7 @@ export const TOPPING_COLOURS: Record<Topping, string> = {
 
 export type Beat =
   | { kind: "intro" }
+  | { kind: "turn" }
   | { kind: "cut" }
   | { kind: "count" }
   | { kind: "combine" }
@@ -274,36 +275,51 @@ export function buildFractionScene(solution: FractionSolution, glues: number[]):
   const overflow = mixed.whole > 0;
   const layout = makeLayout(solution, overflow);
 
-  // Tray 1: the first `a` columns have topping. Tray 2: the first `c` rows
-  // (or columns, when the pieces already match).
+  const strips = solution.mode === "strips";
+  const perA = D / problem.b; // pieces in each of tray 1's strips once cut
+  const perB = D / problem.d;
+
+  // Tray 1: the first `a` strips (columns) have topping.
   const aIds: string[] = [];
   const pieces: PieceState[] = [];
-  for (let col = 0; col < problem.a; col++)
+  for (let col = 0; col < problem.a * (cols / problem.b); col++)
     for (let row = 0; row < rows; row++) {
       const id = `A-${row}-${col}`;
       aIds.push(id);
       pieces.push({ id, topping: "caramel", outline: false, ...cellRect(layout, "A", row, col) });
     }
+  // Tray 2: the first `c` rows, or columns when the trays end up as strips.
   const bIds: string[] = [];
   const bCells: [number, number][] = [];
-  if (sameDenominator) for (let col = 0; col < problem.c; col++) bCells.push([0, col]);
+  if (rows === 1) for (let col = 0; col < nB; col++) bCells.push([0, col]);
   else
     for (let col = 0; col < cols; col++)
       for (let row = 0; row < problem.c; row++) bCells.push([row, col]);
+  const bTray = trayRect(layout, "B");
   for (const [row, col] of bCells) {
     const id = `B-${row}-${col}`;
     bIds.push(id);
-    pieces.push({ id, topping: "strawberry", outline: false, ...cellRect(layout, "B", row, col) });
+    // Strips: tray 2 starts as rows and turns round later, so each piece starts
+    // as part of row `strip` (the pieces in a row are side by side).
+    const start: Rect = strips
+      ? {
+          x: bTray.x + (col % perB) * (bTray.w / perB),
+          y: bTray.y + Math.floor(col / perB) * (bTray.h / problem.d),
+          w: bTray.w / perB,
+          h: bTray.h / problem.d,
+        }
+      : cellRect(layout, "B", row, col);
+    pieces.push({ id, topping: "strawberry", outline: false, ...start });
   }
 
   const emptyTray = (label: TrayLabel | null = null): TrayState => ({ cols: 1, rows: 1, whole: false, label });
   let state: SimState = {
     pieces,
     trays: {
-      A: { cols, rows: 1, whole: false, label: frac(problem.a, problem.b) },
+      A: { cols: problem.b, rows: 1, whole: false, label: frac(problem.a, problem.b) },
       B: sameDenominator
         ? { cols, rows: 1, whole: false, label: frac(problem.c, problem.d) }
-        : { cols: 1, rows, whole: false, label: frac(problem.c, problem.d) },
+        : { cols: 1, rows: problem.d, whole: false, label: frac(problem.c, problem.d) },
       R1: sameDenominator ? { ...emptyTray(), cols } : emptyTray(),
       R2: sameDenominator ? { ...emptyTray(), cols } : emptyTray(),
     },
@@ -319,8 +335,22 @@ export function buildFractionScene(solution: FractionSolution, glues: number[]):
   const introDelays = new Map(state.pieces.map((p, i) => [p.id, i * stagger(state.pieces.length) * 0.5]));
   push({ kind: "intro" }, render(layout, state, { key: "intro", delays: introDelays, duration: 1 }));
 
+  if (strips) {
+    // Turn tray 2 round: its rows swing into columns, the same way as tray 1's strips.
+    state = cloneState(state);
+    const map = new Map(state.pieces.map((p) => [p.id, p]));
+    const delays = new Map<string, number>();
+    bCells.forEach(([row, col], i) => {
+      Object.assign(map.get(bIds[i])!, cellRect(layout, "B", row, col));
+      delays.set(bIds[i], 0.15);
+    });
+    state.trays.B.cols = problem.d;
+    state.trays.B.rows = 1;
+    push({ kind: "turn" }, render(layout, state, { key: "turn", delays, duration: 1.3 }));
+  }
+
   if (!sameDenominator) {
-    // Cut both ways: every tray now shows the full grid, and pieces are free.
+    // Cut: every tray now shows the same pieces, and pieces are free.
     state = cloneState(state);
     for (const id of ["A", "B", "R1", "R2"] as TrayId[]) {
       state.trays[id].cols = cols;
@@ -444,8 +474,8 @@ export function buildFractionScene(solution: FractionSolution, glues: number[]):
     frames,
     answerIds,
     glueStates,
-    firstStripA: aIds.slice(0, rows),
-    firstRowB: sameDenominator ? bIds.slice(0, 1) : bIds.filter((id) => id.startsWith("B-0-")),
+    firstStripA: aIds.slice(0, perA),
+    firstRowB: rows === 1 ? bIds.slice(0, perB) : bIds.filter((id) => id.startsWith("B-0-")),
   };
 }
 
@@ -552,10 +582,19 @@ export function narrate(scene: FractionScene, index: number): string {
       return s.sameDenominator
         ? `Let's work out ${problemWords(s)}. Both trays are cut into ${pieceName(b, true)}, so the pieces are the same size already!`
         : `Let's work out ${problemWords(s)}. Uh-oh: ${pieceName(b, true)} and ${pieceName(d, true)} are different sizes, so we can't ${op === "+" ? "add" : "take"} them yet!`;
-    case "cut":
-      return `Cut tray 1 into ${d} rows and tray 2 into ${b} columns. Now both trays have ${b} × ${d} = ${D} pieces, all the same size.`;
+    case "turn":
+      return `${b} and ${d} both go into ${D}! Turn tray 2 round, so its ${pieceName(d, true)} are strips the same way as tray 1's ${pieceName(b, true)}.`;
+    case "cut": {
+      if (s.mode === "grid")
+        return `Cut tray 1 into ${d} rows and tray 2 into ${b} columns. Now both trays have ${b} × ${d} = ${D} pieces, all the same size.`;
+      const cuts = [
+        D / b > 1 ? `each ${pieceName(b)} into ${D / b}` : null,
+        D / d > 1 ? `each ${pieceName(d)} into ${D / d}` : null,
+      ].filter(Boolean);
+      return `Cut ${cuts.join(" and ")}. Now both trays have ${D} strips, all the same size.`;
+    }
     case "count":
-      return `Each ${pieceName(b)} is now ${d} pieces, so ${fractionWords(a, b)} = ${fractionWords(s.nA, D)}. Each ${pieceName(d)} is ${b} pieces, so ${fractionWords(c, d)} = ${fractionWords(s.nB, D)}.`;
+      return `Each ${pieceName(b)} is now ${D / b} pieces, so ${fractionWords(a, b)} = ${fractionWords(s.nA, D)}. Each ${pieceName(d)} is ${D / d} pieces, so ${fractionWords(c, d)} = ${fractionWords(s.nB, D)}.`;
     case "combine":
       if (op === "-") return `Start with the ${s.nA} caramel pieces and take away ${s.nB}.`;
       return s.mixed.whole
@@ -584,6 +623,8 @@ export function practiceCaption(scene: FractionScene, index: number): string {
       return s.sameDenominator
         ? `Both trays are cut into ${pieceName(s.problem.b, true)}: the pieces match!`
         : "Different sized pieces! Cut both trays both ways to make them match.";
+    case "turn":
+      return "Tray 2 turned round: now both trays are strips going the same way.";
     case "cut":
       return "Both trays are cut the same way now. Count the pieces with topping!";
     case "count":

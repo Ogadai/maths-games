@@ -132,51 +132,57 @@ function Tin({ tray, t, reduce, celebrate }: { tray: SceneTray; t: TFn; reduce: 
 function Piece({ piece: p, t, reduce }: { piece: ScenePiece; t: TFn; reduce: boolean }) {
   const colour = TOPPING_COLOURS[p.topping];
   const sponge = Math.min(p.h * 0.28, 7);
+  const move = t(0.7, p.delay, { ease: [0.34, 1.2, 0.64, 1] });
+  const grow = { width: move, height: move, x: move, y: move };
+  /** Starts at its first size, then animates to any new size. */
+  const size = (attrs: Record<string, number>) => ({ initial: attrs, animate: attrs, transition: grow });
   return (
     <motion.g
       initial={{ x: p.x, y: p.y, opacity: 0, scale: 0.6 }}
       animate={{ x: p.x, y: p.y, opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.2, transition: t(0.4, 0.15) }}
       transition={{
-        x: t(0.7, p.delay, { ease: [0.34, 1.2, 0.64, 1] }),
-        y: t(0.7, p.delay, { ease: [0.34, 1.2, 0.64, 1] }),
+        x: move,
+        y: move,
         opacity: t(0.4, p.delay),
         scale: t(0.4, p.delay),
       }}
     >
       {/* A cut piece shows its sponge and a shine, so it reads as a slice of cake.
-          Uncut or glued pieces are plain topping, so neighbours merge into one piece. */}
+          Uncut or glued pieces are plain topping, so neighbours merge into one piece.
+          Sizes animate too, so tray 2 can turn its rows into columns. */}
       {/* A hair bigger than the cell, so neighbouring pieces meet without anti-aliased seams. */}
-      <rect x={-0.4} y={-0.4} width={p.w + 0.8} height={p.h + 0.8} fill={colour} />
+      <motion.rect x={-0.4} y={-0.4} fill={colour} {...size({ width: p.w + 0.8, height: p.h + 0.8 })} />
       <motion.g initial={false} animate={{ opacity: p.outline ? 1 : 0 }} transition={t(0.4)}>
-        <rect y={p.h - sponge} width={p.w} height={sponge} fill={SPONGE} />
-        <rect x={p.w * 0.15} y={(p.h - sponge) * 0.25} width={p.w * 0.3} height={Math.min(2, p.h * 0.06)} rx={1} fill="#fff" opacity={0.55} />
+        <motion.rect fill={SPONGE} {...size({ y: p.h - sponge, width: p.w, height: sponge })} />
+        <motion.rect
+          rx={1}
+          fill="#fff"
+          opacity={0.55}
+          {...size({ x: p.w * 0.15, y: (p.h - sponge) * 0.25, width: p.w * 0.3, height: Math.min(2, p.h * 0.06) })}
+        />
       </motion.g>
       <motion.rect
         x={0.6}
         y={0.6}
-        width={p.w - 1.2}
-        height={p.h - 1.2}
         rx={1.5}
         fill="none"
         stroke={INK}
         strokeWidth={1.1}
-        initial={false}
-        animate={{ opacity: p.outline ? 0.8 : 0 }}
-        transition={t(0.4)}
+        initial={{ width: p.w - 1.2, height: p.h - 1.2, opacity: p.outline ? 0.8 : 0 }}
+        animate={{ width: p.w - 1.2, height: p.h - 1.2, opacity: p.outline ? 0.8 : 0 }}
+        transition={{ ...grow, opacity: t(0.4) }}
       />
       <motion.rect
         x={1.5}
         y={1.5}
-        width={p.w - 3}
-        height={p.h - 3}
         rx={2}
         fill="none"
         stroke="#7B5CFF"
         strokeWidth={2.5}
-        initial={false}
-        animate={{ opacity: p.glow ? (reduce ? 1 : [0.3, 1, 0.3]) : 0 }}
-        transition={p.glow && !reduce ? t(1.1, 0, { repeat: Infinity }) : t(0.2)}
+        initial={{ width: p.w - 3, height: p.h - 3, opacity: 0 }}
+        animate={{ width: p.w - 3, height: p.h - 3, opacity: p.glow ? (reduce ? 1 : [0.3, 1, 0.3]) : 0 }}
+        transition={{ ...grow, opacity: p.glow && !reduce ? t(1.1, 0, { repeat: Infinity }) : t(0.2) }}
       />
       {p.badge !== undefined && (
         <motion.text

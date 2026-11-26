@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { canGlue, gcd, solveFraction, type FractionProblem } from "../src/lib/maths/fractions";
+import { canGlue, gcd, lcm, solveFraction, type FractionProblem } from "../src/lib/maths/fractions";
 import {
   ASK_LABELS,
   answerSimplest,
@@ -44,7 +44,15 @@ function rightAnswer(s: PracticeState): number {
   }
 }
 
-async function solveCurrentProblem(page: Page, opts: { mistakeAt?: FractionAsk } = {}) {
+interface SolveOptions {
+  mistakeAt?: FractionAsk;
+  /** Answer the "pieces in each tray" step with the smallest common denominator. */
+  smallest?: boolean;
+  /** Called straight after the "pieces in each tray" answer. */
+  afterDen?: () => Promise<void>;
+}
+
+async function solveCurrentProblem(page: Page, opts: SolveOptions = {}) {
   let s = startPractice(solveFraction(await readProblem(page)));
   const status = practice(page).getByRole("status");
   await expect(status).toContainText(s.message);
@@ -58,7 +66,9 @@ async function solveCurrentProblem(page: Page, opts: { mistakeAt?: FractionAsk }
       continue;
     }
     const box = practice(page).getByRole("textbox", { name: ASK_LABELS[s.ask] });
-    const answer = rightAnswer(s);
+    const asked = s.ask;
+    const { b, d: bottom } = s.solution.problem;
+    const answer = asked === "den" && opts.smallest ? lcm(b, bottom) : rightAnswer(s);
     if (opts.mistakeAt === s.ask) {
       const { n, d } = currentPart(s);
       let wrong = answer + 1;
@@ -77,6 +87,7 @@ async function solveCurrentProblem(page: Page, opts: { mistakeAt?: FractionAsk }
     await practice(page).getByRole("button", { name: /Check/ }).click();
     s = applyAnswer(s, answer);
     await expect(status).toContainText(s.message);
+    if (asked === "den") await opts.afterDen?.();
   }
   return s;
 }
@@ -161,6 +172,27 @@ for (const [level, mistakeAt] of [
     await page.screenshot({ path: `test-results/fractions-${level}-done-${test.info().project.name}.png`, fullPage: true });
   });
 }
+
+test("a smaller common denominator turns tray 2 round and cuts strips", async ({ page }) => {
+  await page.goto(URL);
+  await page.getByRole("button", { name: "Sound" }).click();
+  await page.getByRole("button", { name: /Got it/ }).click();
+  // Explorer pairs (½ and ¼, ⅓ and ⅙, ...) always have a smaller common denominator.
+  await practice(page).getByRole("button", { name: /Explorer/ }).click();
+  const picture = practice(page).getByRole("img");
+  await solveCurrentProblem(page, {
+    smallest: true,
+    afterDen: async () => {
+      await expect(practice(page).getByRole("status")).toContainText("Yes, clever!");
+      await page.waitForTimeout(700);
+      await picture.screenshot({ path: `test-results/fractions-turning-${test.info().project.name}.png` });
+      await expect(practice(page).getByText("Both trays are cut the same way now")).toBeVisible({ timeout: 6000 });
+      await page.waitForTimeout(1500);
+      await picture.screenshot({ path: `test-results/fractions-strips-${test.info().project.name}.png` });
+    },
+  });
+  await expect(practice(page).getByRole("status")).toContainText("You did it!");
+});
 
 test("the trays and the board fit on screen together", async ({ page }) => {
   await page.goto(URL);

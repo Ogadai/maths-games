@@ -24,14 +24,24 @@ export interface MixedFraction {
   d: number;
 }
 
+/**
+ * How the trays end up cut:
+ * - "same": the bottom numbers already match, so no cutting.
+ * - "grid": cut both ways into b × d pieces (always works).
+ * - "strips": turn tray 2 so both trays are strips, then cut both into a
+ *   smaller common denominator (when the student picks one).
+ */
+export type CutMode = "same" | "grid" | "strips";
+
 export interface FractionSolution {
   problem: FractionProblem;
+  mode: CutMode;
   /** Both fractions already have the same bottom number, so no cutting is needed. */
   sameDenominator: boolean;
   /** Grid every tray ends up cut into: rows × cols = denominator. */
   rows: number;
   cols: number;
-  /** The common denominator (b × d, or b when they already match). */
+  /** The common denominator (b × d, the chosen common multiple, or b when they already match). */
   denominator: number;
   /** a/b and c/d written as pieces of the common denominator. */
   nA: number;
@@ -57,14 +67,28 @@ export function lcm(a: number, b: number): number {
   return (a / gcd(a, b)) * b;
 }
 
-export function solveFraction(problem: FractionProblem): FractionSolution {
+/** A common denominator smaller than b × d, which needs the strips layout. */
+export function isSmallerCommonDenominator({ b, d }: FractionProblem, value: number): boolean {
+  return b !== d && value < b * d && value % b === 0 && value % d === 0;
+}
+
+/**
+ * Solve a/b ± c/d. By default the trays are cut both ways into b × d pieces;
+ * pass a smaller common denominator to cut both trays into that many strips.
+ */
+export function solveFraction(problem: FractionProblem, chosen?: number): FractionSolution {
   const { a, b, c, d, op } = problem;
   const sameDenominator = b === d;
-  const rows = sameDenominator ? 1 : d;
-  const cols = b;
+  const mode: CutMode = sameDenominator
+    ? "same"
+    : chosen !== undefined && isSmallerCommonDenominator(problem, chosen)
+      ? "strips"
+      : "grid";
+  const rows = mode === "grid" ? d : 1;
+  const cols = mode === "strips" ? chosen! : b;
   const denominator = rows * cols;
-  const nA = a * rows;
-  const nB = sameDenominator ? c : c * cols;
+  const nA = a * (denominator / b);
+  const nB = c * (denominator / d);
   const total = op === "+" ? nA + nB : nA - nB;
   const whole = total >= denominator ? 1 : 0;
   const n = total - whole * denominator;
@@ -72,6 +96,7 @@ export function solveFraction(problem: FractionProblem): FractionSolution {
   const hcf = n === 0 ? 1 : gcd(n, denominator);
   return {
     problem,
+    mode,
     sameDenominator,
     rows,
     cols,
