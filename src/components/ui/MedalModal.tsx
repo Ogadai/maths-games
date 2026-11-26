@@ -7,7 +7,7 @@ import { MedalIcon } from "./MedalIcon";
 import { useSoundOn } from "./SoundToggle";
 import { medalById } from "@/lib/rewards/rules";
 import { useRewards } from "@/lib/rewards/store";
-import { playCelebrate, speak } from "@/lib/sound";
+import { playCelebrate, speakNext } from "@/lib/sound";
 
 /** Celebrates each newly unlocked medal, one at a time. Lives in the root layout. */
 export function MedalModal() {
@@ -24,7 +24,8 @@ export function MedalModal() {
     if (!dialog.open) dialog.showModal();
     if (soundOn) {
       playCelebrate();
-      speak(`Wow! You unlocked ${medal.name}!`);
+      // After Divvy finishes reading out the answer.
+      void speakNext(`Wow! You unlocked ${medal.name}!`);
     }
     void import("canvas-confetti").then(({ default: confetti }) =>
       confetti({

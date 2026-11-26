@@ -20,6 +20,7 @@
   --animate-wiggle: wiggle 0.4s ease-in-out;
   --animate-pop: pop 0.35s ease-out;
   --animate-float: float 3s ease-in-out infinite;
+  --animate-nudge: nudge 1.8s ease-in-out infinite;
 
   @keyframes wiggle {
     0%, 100% { transform: translateX(0); }
@@ -32,6 +33,15 @@
     0% { transform: scale(0.4); opacity: 0; }
     70% { transform: scale(1.15); opacity: 1; }
     100% { transform: scale(1); }
+  }
+  /* "Tap me!": a quick wiggle and a glow pulsing outwards, then a rest. */
+  @keyframes nudge {
+    0% { transform: rotate(0) scale(1); box-shadow: 0 0 0 0 rgb(255 201 60 / 0.9); }
+    8% { transform: rotate(-4deg) scale(1.08); }
+    16% { transform: rotate(4deg) scale(1.08); }
+    24% { transform: rotate(-3deg) scale(1.05); }
+    32% { transform: rotate(0) scale(1); }
+    60%, 100% { transform: rotate(0) scale(1); box-shadow: 0 0 0 16px rgb(255 201 60 / 0); }
   }
   @keyframes float {
     0%, 100% { transform: translateY(0); }

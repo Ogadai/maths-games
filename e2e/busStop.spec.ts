@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { solveBusStop } from "../src/lib/maths/busStop";
+import { toSpeech } from "../src/lib/sound";
 
 /** The practice section, so "How it works" (which also has a board and a speech bubble) doesn't get in the way. */
 const practice = (page: Page) => page.getByRole("region", { name: /Your turn/ });
@@ -36,9 +37,14 @@ async function solveCurrentProblem(page: Page, opts: { makeMistake?: boolean } =
 
 /** Close any "Medal unlocked!" pop-ups so the page underneath can be used again. */
 async function dismissMedals(page: Page) {
-  const dialog = page.getByRole("dialog");
-  while (await dialog.isVisible()) {
-    await dialog.getByRole("button", { name: "Awesome!" }).click();
+  // The next medal opens a moment after the previous one closes, so give each a second to appear.
+  const awesome = page.getByRole("dialog").getByRole("button", { name: "Awesome!" });
+  for (let i = 0; i < 10; i++) {
+    try {
+      await awesome.click({ timeout: 1000 });
+    } catch {
+      return;
+    }
   }
 }
 
@@ -267,7 +273,13 @@ test.describe("points, medals and jokes", () => {
     const jokes: string[] = [];
     for (let i = 1; i <= 5; i++) {
       await solveCurrentProblem(page);
-      await expect(practice(page).getByRole("status")).toContainText("points!");
+      // The points fly up to the header in a gold star rather than being read out.
+      await expect(page.getByTestId("points-flyer")).toContainText(/\+\d+/);
+      if (i === 3) {
+        await page.waitForTimeout(500); // the star has popped up and is about to fly
+        await page.screenshot({ path: `test-results/points-star-${test.info().project.name}.png` });
+      }
+      await expect(practice(page).getByRole("status")).not.toContainText("points!");
       const joke = practice(page).getByRole("region", { name: "Joke" });
       jokes.push((await joke.locator("p").first().textContent())!);
       if (i === 1) {
@@ -339,4 +351,36 @@ test.describe("points, medals and jokes", () => {
     await expect(page.getByRole("button", { name: /^Alan ·/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Ada ·/ })).toHaveAttribute("aria-pressed", "true");
   });
+});
+
+test("Divvy reads the joke after the answer, nudges the reveal button, then reads the punchline", async ({ page }) => {
+  await page.addInitScript(() => {
+    const spoken: string[] = [];
+    (window as unknown as { spoken: string[] }).spoken = spoken;
+    // Pretend to talk: each line "finishes" shortly after it starts.
+    window.speechSynthesis.speak = (u: SpeechSynthesisUtterance) => {
+      spoken.push(u.text);
+      setTimeout(() => u.onend?.(new Event("end") as SpeechSynthesisEvent), 300);
+    };
+  });
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken);
+
+  await page.goto("/topics/bus-stop-division");
+  await page.getByRole("button", { name: /Warm-up/ }).click();
+  await solveCurrentProblem(page);
+
+  const joke = practice(page).getByRole("region", { name: "Joke" });
+  const setup = (await joke.locator("p").first().textContent())!.replace("😂", "").trim();
+  const button = joke.getByRole("button", { name: /reveal the punchline/ });
+  await expect(button).toHaveAttribute("data-nudge", "true");
+  // The joke's setup was read straight after the answer.
+  const lines = await spoken();
+  expect(lines.at(-2)).toMatch(/^You did it!/);
+  expect(lines.at(-2)).not.toMatch(/points/);
+  expect(lines.at(-1)).toBe(toSpeech(setup));
+  await page.screenshot({ path: `test-results/joke-nudge-${test.info().project.name}.png` });
+
+  await button.click();
+  const punchline = (await joke.locator("p").nth(1).textContent())!;
+  await expect.poll(async () => (await spoken()).at(-1)).toBe(toSpeech(punchline));
 });

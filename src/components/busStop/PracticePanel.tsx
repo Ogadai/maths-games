@@ -11,7 +11,7 @@ import { NumberPad } from "@/components/ui/NumberPad";
 import { useSoundOn } from "@/components/ui/SoundToggle";
 import { useCoarsePointer } from "@/lib/useMediaQuery";
 import { useRewards } from "@/lib/rewards/store";
-import type { ScoreBreakdown } from "@/lib/rewards/rules";
+import { flightPath, PointsFlyer, type Award } from "@/components/ui/PointsFlyer";
 import {
   playCelebrate,
   playCorrect,
@@ -58,6 +58,8 @@ interface Session {
   done: boolean;
   /** Joke shown once the problem is solved. */
   jokeIndex: number | null;
+  /** Points earned for solving it, and where the star flies. */
+  award: Award | null;
   whatIf: WhatIf;
 }
 
@@ -87,6 +89,7 @@ function newSession(level: BusStopLevel): Session {
     mistakes: 0,
     done: false,
     jokeIndex: null,
+    award: null,
     whatIf: null,
   };
 }
@@ -196,11 +199,6 @@ function awaiting(s: Session): PracticeAwaiting {
   return s.active.kind;
 }
 
-function scoreMessage(score: ScoreBreakdown): string {
-  const streak = score.multiplier > 1 ? ` 🔥 ${score.streak} in a row, so ×${score.multiplier}!` : "";
-  return ` ⭐ +${score.total} points!${streak}`;
-}
-
 async function celebrate() {
   const confetti = (await import("canvas-confetti")).default;
   confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 }, disableForReducedMotion: true });
@@ -234,6 +232,7 @@ export function PracticePanel() {
   const [showTable, setShowTable] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLFormElement>(null);
   const [soundOn] = useSoundOn();
   const touch = useCoarsePointer();
   const reduceMotion = useReducedMotion();
@@ -285,7 +284,8 @@ export function PracticePanel() {
         mistakes: next.mistakes,
         hadRemainder: next.solution.remainder > 0,
       });
-      next.message += scoreMessage(score);
+      // Points are shown by a star flying to the header badge, not read aloud.
+      next.award = { score, ...flightPath(boardRef.current) };
       next.jokeIndex = drawJoke();
       void celebrate();
     }
@@ -404,9 +404,14 @@ export function PracticePanel() {
         <>
           <SpeechBubble compact tone={session.tone}>
             {session.message}
+            {session.award && (
+              <span className="sr-only"> You earned {session.award.score.total} points.</span>
+            )}
           </SpeechBubble>
+          {session.award && <PointsFlyer key={session.id} award={session.award} />}
 
           <form
+            ref={boardRef}
             onSubmit={onSubmit}
             className="rounded-3xl border-4 border-ink bg-cloud p-2 sm:p-4 flex flex-col items-center gap-2 sm:gap-3 shadow-[0_6px_0_var(--color-ink)]"
           >

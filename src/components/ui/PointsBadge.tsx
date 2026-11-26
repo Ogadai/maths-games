@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { activeProfile, useRewards } from "@/lib/rewards/store";
+import { FLIGHT_SECONDS, POINTS_TARGET_ATTR } from "./PointsFlyer";
 
 /** Header badge: the active player's points (counting up as they rise) and streak. */
 export function PointsBadge() {
@@ -16,6 +17,7 @@ export function PointsBadge() {
   const value = useMotionValue(0);
   const rounded = useTransform(value, (v) => Math.round(v).toLocaleString("en-GB"));
   const shownOnce = useRef(false);
+  const badgeRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -25,16 +27,26 @@ export function PointsBadge() {
       value.jump(points);
       return;
     }
-    const controls = animate(value, points, { duration: 1.2, ease: "easeOut" });
-    return () => controls.stop();
+    // Newly earned points wait for the flying star to land, then count up with a bump.
+    const delay = points > value.get() ? FLIGHT_SECONDS * 0.9 : 0;
+    const count = animate(value, points, { duration: 1.2, ease: "easeOut", delay });
+    const bump = badgeRef.current
+      ? animate(badgeRef.current, { scale: [1, 1.18, 1] }, { duration: 0.4, delay })
+      : null;
+    return () => {
+      count.stop();
+      bump?.stop();
+    };
   }, [points, hydrated, reduceMotion, value]);
 
   const who = nickname ? `${nickname}'s` : "Your";
   return (
     <Link
+      ref={badgeRef}
       href="/trophies"
+      {...{ [POINTS_TARGET_ATTR]: "" }}
       aria-label={`${who} trophies: ${points} points${streak > 1 ? `, ${streak} in a row` : ""}`}
-      className="inline-flex items-center gap-1.5 sm:gap-2 rounded-2xl border-4 border-sunny-dark bg-sunny px-2.5 sm:px-3 py-1.5 font-display text-lg font-semibold shadow-[0_4px_0_var(--color-sunny-dark)] transition hover:brightness-105 active:translate-y-1 active:shadow-none focus-visible:outline-4 focus-visible:outline-grape"
+      className="inline-flex items-center gap-1.5 sm:gap-2 rounded-2xl border-4 border-sunny-dark bg-sunny px-2.5 sm:px-3 py-1.5 font-display text-lg font-semibold shadow-[0_4px_0_var(--color-sunny-dark)] transition-[filter,box-shadow] hover:brightness-105 active:translate-y-1 active:shadow-none focus-visible:outline-4 focus-visible:outline-grape"
     >
       <span aria-hidden="true">⭐</span>
       <motion.span data-testid="points" className="tabular-nums min-w-[1ch]">

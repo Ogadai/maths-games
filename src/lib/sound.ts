@@ -157,17 +157,9 @@ if (speechSupported()) {
   });
 }
 
-/**
- * Read a message aloud, interrupting anything Divvy was already saying.
- * Resolves when Divvy stops talking (or after a generous estimate, because
- * some browsers never fire the "end" event).
- */
-export function speak(text: string): Promise<void> {
-  if (!speechSupported()) return Promise.resolve();
-  const spoken = toSpeech(text);
-  if (!spoken) return Promise.resolve();
+/** Say one utterance without interrupting. Resolves when it ends or is cancelled. */
+function utter(spoken: string): Promise<void> {
   const synth = window.speechSynthesis;
-  synth.cancel();
   const utterance = new SpeechSynthesisUtterance(spoken);
   utterance.lang = "en-GB";
   const voice = pickVoice();
@@ -185,6 +177,48 @@ export function speak(text: string): Promise<void> {
   });
 }
 
+/** Bumped whenever Divvy is interrupted, so queued lines know to give up. */
+let generation = 0;
+/** Settles when everything Divvy has been asked to say is finished. */
+let tail: Promise<unknown> = Promise.resolve();
+
+/**
+ * Read a message aloud, interrupting anything Divvy was already saying (and
+ * dropping anything queued). Resolves when Divvy stops talking (or after a
+ * generous estimate, because some browsers never fire the "end" event).
+ */
+export function speak(text: string): Promise<void> {
+  if (!speechSupported()) return Promise.resolve();
+  generation++;
+  window.speechSynthesis.cancel();
+  const spoken = toSpeech(text);
+  const done = spoken ? utter(spoken) : Promise.resolve();
+  tail = done;
+  return done;
+}
+
+/**
+ * Read a message aloud once Divvy has finished everything already said or
+ * queued. Resolves true if it was read out in full, or false if Divvy was
+ * interrupted first (by `speak` or `stopSpeaking`), in which case it may
+ * not have been said at all. Aborting `signal` before its turn comes skips it.
+ */
+export function speakNext(text: string, signal?: AbortSignal): Promise<boolean> {
+  if (!speechSupported()) return Promise.resolve(true);
+  const gen = generation;
+  const spoken = toSpeech(text);
+  const done = tail.then(async () => {
+    if (gen !== generation || signal?.aborted) return false;
+    if (spoken) await utter(spoken);
+    return gen === generation;
+  });
+  tail = done;
+  return done;
+}
+
 export function stopSpeaking() {
-  if (speechSupported()) window.speechSynthesis.cancel();
+  if (!speechSupported()) return;
+  generation++;
+  tail = Promise.resolve();
+  window.speechSynthesis.cancel();
 }
