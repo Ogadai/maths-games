@@ -167,7 +167,11 @@ export const BADGES: Medal[] = [
   },
 ];
 
-export const MEDALS: Medal[] = [...topicMedals("bus-stop-division", "Bus Stop"), ...BADGES];
+export const MEDALS: Medal[] = [
+  ...topicMedals("bus-stop-division", "Bus Stop"),
+  ...topicMedals("fractions", "Fractions"),
+  ...BADGES,
+];
 
 export function medalById(id: string): Medal | undefined {
   return MEDALS.find((m) => m.id === id);

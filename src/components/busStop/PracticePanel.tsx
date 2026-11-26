@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useReducedMotion } from "motion/react";
 import { BOARD_INPUT_CLASSES, BusStopBoard, type ActiveCell } from "./BusStopBoard";
 import { PlaceValueVisualiser } from "./PlaceValueVisualiser";
-import { Workspace } from "./Workspace";
+import { Workspace } from "@/components/ui/Workspace";
 import { SpeechBubble } from "@/components/ui/Mascot";
 import { JokeCard } from "@/components/ui/JokeCard";
+import { LevelCards, LevelChips } from "@/components/ui/LevelPicker";
 import { NumberPad } from "@/components/ui/NumberPad";
 import { useSoundOn } from "@/components/ui/SoundToggle";
 import { useCoarsePointer } from "@/lib/useMediaQuery";
+import { celebrate, useChasedBeat } from "@/lib/usePractice";
 import { useRewards } from "@/lib/rewards/store";
 import { flightPath, PointsFlyer, type Award } from "@/components/ui/PointsFlyer";
 import {
@@ -26,7 +28,6 @@ import {
   practiceBeatIndex,
   practiceCaption,
   whatIfFrame,
-  type BusStopScene,
   type PracticeAwaiting,
 } from "@/lib/maths/busStopScene";
 import {
@@ -199,31 +200,6 @@ function awaiting(s: Session): PracticeAwaiting {
   return s.active.kind;
 }
 
-async function celebrate() {
-  const confetti = (await import("canvas-confetti")).default;
-  confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 }, disableForReducedMotion: true });
-}
-
-/**
- * Move the shown beat towards the target one beat at a time, letting each
- * beat's animation finish first (one answer can complete two beats at once).
- */
-function useChasedBeat(scene: BusStopScene, target: number): number {
-  const [shown, setShown] = useState(target);
-  const changedAt = useRef(0);
-  useEffect(() => {
-    changedAt.current = performance.now();
-  }, [shown]);
-  useEffect(() => {
-    if (shown === target) return;
-    const step = target > shown ? 1 : -1;
-    const busyFor = scene.frames[shown].duration * 1000 + 200 - (performance.now() - changedAt.current);
-    const id = setTimeout(() => setShown((s) => s + step), Math.max(0, busyFor));
-    return () => clearTimeout(id);
-  }, [shown, target, scene]);
-  return shown;
-}
-
 export function PracticePanel() {
   const [level, setLevel] = useState<BusStopLevel | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -322,52 +298,10 @@ export function PracticePanel() {
   };
 
   if (!session || level === null) {
-    return (
-      <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
-        <legend className="sr-only">Choose a level to start</legend>
-        {BUS_STOP_LEVELS.map((l) => (
-          <button
-            key={l.level}
-            type="button"
-            aria-pressed={false}
-            onClick={() => start(l.level)}
-            className="rounded-2xl border-4 border-ink/20 bg-cloud px-4 py-2 text-left transition hover:border-grape focus-visible:outline-4 focus-visible:outline-grape"
-          >
-            <span className="font-display text-lg font-semibold">
-              {l.emoji} {l.name}
-            </span>
-            <span className="block text-sm text-ink-soft">{l.description}</span>
-          </button>
-        ))}
-      </fieldset>
-    );
+    return <LevelCards levels={BUS_STOP_LEVELS} onPick={start} />;
   }
 
-  const levelChips = (
-    <fieldset className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
-      <legend className="sr-only">Level</legend>
-      {BUS_STOP_LEVELS.map((l) => {
-        const selected = l.level === level;
-        return (
-          <button
-            key={l.level}
-            type="button"
-            aria-pressed={selected}
-            title={l.description}
-            onClick={() => start(l.level)}
-            className={`min-h-11 rounded-2xl border-4 px-1 py-1 font-display text-sm sm:text-lg font-semibold leading-tight flex flex-col sm:flex-row items-center justify-center sm:gap-1.5 focus-visible:outline-4 focus-visible:outline-grape ${
-              selected
-                ? "border-grape bg-grape text-white shadow-[0_3px_0_var(--color-grape-dark)]"
-                : "border-ink/15 bg-cloud hover:border-grape"
-            }`}
-          >
-            <span aria-hidden="true">{l.emoji}</span>
-            <span>{l.name}</span>
-          </button>
-        );
-      })}
-    </fieldset>
-  );
+  const levelChips = <LevelChips levels={BUS_STOP_LEVELS} selected={level} onPick={start} />;
 
   const kind = session.active?.kind;
   const inputEl = (

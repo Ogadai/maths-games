@@ -93,6 +93,11 @@ describe("medals", () => {
     expect(solveMany(4, { hadRemainder: true }).progress.medals).not.toContain("remainder-wrangler");
   });
 
+  it("keeps each topic's medals separate", () => {
+    const { progress } = solveMany(5, { topic: "fractions", hintsUsed: 1, mistakes: 1 });
+    expect(progress.medals).toEqual(["fractions:bronze"]);
+  });
+
   it("has unique ids", () => {
     expect(new Set(MEDALS.map((m) => m.id)).size).toBe(MEDALS.length);
   });

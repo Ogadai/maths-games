@@ -28,11 +28,11 @@ export const TOPICS: Topic[] = [
   },
   {
     slug: "fractions",
-    title: "Fractions",
-    tagline: "Slice pizzas and compare pieces.",
-    emoji: "🍕",
+    title: "Adding Fractions",
+    tagline: "Cut traybakes into matching pieces to add and take away.",
+    emoji: "🍰",
     colour: "bg-coral",
-    available: false,
+    available: true,
   },
   {
     slug: "long-multiplication",
