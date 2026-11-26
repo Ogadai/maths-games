@@ -11,6 +11,7 @@ npm run lint
 npm run typecheck
 npm test             # unit tests (Vitest)
 npm run test:e2e     # browser tests (Playwright); first run: npx playwright install chromium
+npm run icons        # regenerate favicon/home-screen PNGs after editing src/app/icon.svg
 ```
 
 ## Deploy (Vercel Hobby, free)

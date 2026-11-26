@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import Link from "next/link";
 import { Mascot } from "@/components/ui/Mascot";
@@ -10,6 +10,12 @@ const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "SumCraft - Maths Games",
   description: "Fun, interactive maths missions for curious minds aged 8 to 14.",
+  // Label under the icon when saved to an iPhone/iPad home screen.
+  appleWebApp: { title: "SumCraft", capable: true, statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7B5CFF",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

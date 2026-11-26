@@ -38,6 +38,25 @@ test("landing page links to Bus Stop Division", async ({ page }) => {
   await expect(page.getByText("Coming soon")).toHaveCount(0);
 });
 
+test("favicon, home-screen icons and manifest are served", async ({ page, request }) => {
+  await page.goto("/");
+  const head = page.locator("head");
+  const hrefs = {
+    favicon: await head.locator('link[rel="icon"][href^="/favicon.ico"]').getAttribute("href"),
+    svg: await head.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute("href"),
+    apple: await head.locator('link[rel="apple-touch-icon"]').getAttribute("href"),
+    manifest: await head.locator('link[rel="manifest"]').getAttribute("href"),
+  };
+  for (const href of Object.values(hrefs)) {
+    expect((await request.get(href!)).ok()).toBe(true);
+  }
+  const manifest = await (await request.get(hrefs.manifest!)).json();
+  expect(manifest.short_name).toBe("SumCraft");
+  for (const icon of manifest.icons) {
+    expect((await request.get(icon.src)).ok()).toBe(true);
+  }
+});
+
 test("'Got it' folds How it works, and the choice survives a reload", async ({ page }) => {
   await page.goto("/topics/bus-stop-division");
   const steps = page.getByText("How many 4s fit into 8?");
