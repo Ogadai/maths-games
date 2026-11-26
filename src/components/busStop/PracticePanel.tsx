@@ -6,9 +6,12 @@ import { BOARD_INPUT_CLASSES, BusStopBoard, type ActiveCell } from "./BusStopBoa
 import { PlaceValueVisualiser } from "./PlaceValueVisualiser";
 import { Workspace } from "./Workspace";
 import { SpeechBubble } from "@/components/ui/Mascot";
+import { JokeCard } from "@/components/ui/JokeCard";
 import { NumberPad } from "@/components/ui/NumberPad";
 import { useSoundOn } from "@/components/ui/SoundToggle";
 import { useCoarsePointer } from "@/lib/useMediaQuery";
+import { useRewards } from "@/lib/rewards/store";
+import type { ScoreBreakdown } from "@/lib/rewards/rules";
 import {
   playCelebrate,
   playCorrect,
@@ -50,7 +53,11 @@ interface Session {
   tone: Tone;
   wrongOnCell: number;
   hintsUsed: number;
+  /** Wrong answers anywhere in this problem (any mistake resets the streak). */
+  mistakes: number;
   done: boolean;
+  /** Joke shown once the problem is solved. */
+  jokeIndex: number | null;
   whatIf: WhatIf;
 }
 
@@ -77,7 +84,9 @@ function newSession(level: BusStopLevel): Session {
     tone: "neutral",
     wrongOnCell: 0,
     hintsUsed: 0,
+    mistakes: 0,
     done: false,
+    jokeIndex: null,
     whatIf: null,
   };
 }
@@ -104,6 +113,7 @@ function applyAnswer(s: Session, value: number): Session {
         message,
         tone: "oops",
         wrongOnCell: s.wrongOnCell + 1,
+        mistakes: s.mistakes + 1,
         whatIf: { kind: "quotient", value },
       };
     }
@@ -148,6 +158,7 @@ function applyAnswer(s: Session, value: number): Session {
       message: `Not quite. ${d} × ${step.quotientDigit} = ${product}. What is ${step.working} − ${product}?`,
       tone: "oops",
       wrongOnCell: s.wrongOnCell + 1,
+      mistakes: s.mistakes + 1,
       whatIf: { kind: "leftover" },
     };
   }
@@ -183,6 +194,11 @@ function finish(s: Session): Session {
 function awaiting(s: Session): PracticeAwaiting {
   if (s.done || !s.active) return "done";
   return s.active.kind;
+}
+
+function scoreMessage(score: ScoreBreakdown): string {
+  const streak = score.multiplier > 1 ? ` 🔥 ${score.streak} in a row, so ×${score.multiplier}!` : "";
+  return ` ⭐ +${score.total} points!${streak}`;
 }
 
 async function celebrate() {
@@ -221,6 +237,8 @@ export function PracticePanel() {
   const [soundOn] = useSoundOn();
   const touch = useCoarsePointer();
   const reduceMotion = useReducedMotion();
+  const recordSolve = useRewards((s) => s.solve);
+  const drawJoke = useRewards((s) => s.drawJoke);
 
   // Don't let Divvy keep talking after the player leaves the page.
   useEffect(() => stopSpeaking, []);
@@ -259,7 +277,18 @@ export function PracticePanel() {
         next.hintsUsed += 1;
       }
     }
-    if (next.done) void celebrate();
+    if (next.done && level !== null) {
+      const score = recordSolve({
+        topic: "bus-stop-division",
+        level,
+        hintsUsed: next.hintsUsed,
+        mistakes: next.mistakes,
+        hadRemainder: next.solution.remainder > 0,
+      });
+      next.message += scoreMessage(score);
+      next.jokeIndex = drawJoke();
+      void celebrate();
+    }
     if (soundOn) {
       if (next.tone === "oops") playOops();
       else if (next.done) playCelebrate();
@@ -412,6 +441,10 @@ export function PracticePanel() {
                   ))}
                 </ul>
               </div>
+            )}
+
+            {session.done && session.jokeIndex !== null && (
+              <JokeCard key={session.id} index={session.jokeIndex} soundOn={soundOn} />
             )}
 
             {session.done ? (

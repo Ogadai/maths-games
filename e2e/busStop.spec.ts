@@ -34,6 +34,14 @@ async function solveCurrentProblem(page: Page, opts: { makeMistake?: boolean } =
   return solution;
 }
 
+/** Close any "Medal unlocked!" pop-ups so the page underneath can be used again. */
+async function dismissMedals(page: Page) {
+  const dialog = page.getByRole("dialog");
+  while (await dialog.isVisible()) {
+    await dialog.getByRole("button", { name: "Awesome!" }).click();
+  }
+}
+
 test("landing page links to Bus Stop Division", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /maths mission/i })).toBeVisible();
@@ -128,7 +136,12 @@ for (const level of ["Warm-up", "Explorer", "Champion", "Legend"]) {
     await expect(practice(page).getByRole("status")).toContainText(
       `${solution.dividend} ÷ ${solution.divisor} = ${solution.quotient}`,
     );
+    await expect(practice(page).getByRole("region", { name: "Joke" })).toBeVisible();
+    if (level === "Legend") {
+      await expect(page.getByRole("dialog")).toContainText("Legend Level Cleared");
+    }
     await page.screenshot({ path: `test-results/${level}-done-${test.info().project.name}.png`, fullPage: true });
+    await dismissMedals(page);
     await page.getByRole("button", { name: /Next problem/ }).click();
     await expect(page.getByRole("textbox", { name: "Answer digit" })).toBeVisible();
   });
@@ -237,5 +250,93 @@ test.describe("on a touch screen", () => {
     const viewport = page.viewportSize()!;
     const box = (await pad.boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+  });
+});
+
+test.describe("points, medals and jokes", () => {
+  // Five problems in a row takes a while on a slow machine.
+  test.slow();
+
+  test("five solves earn points, a streak, Bronze and jokes that don't repeat; progress survives a reload", async ({ page }) => {
+    await page.goto("/topics/bus-stop-division");
+    await page.getByRole("button", { name: "Sound" }).click();
+    const points = page.getByTestId("points");
+    await expect(points).toHaveText("0");
+    await page.getByRole("button", { name: /Warm-up/ }).click();
+
+    const jokes: string[] = [];
+    for (let i = 1; i <= 5; i++) {
+      await solveCurrentProblem(page);
+      await expect(practice(page).getByRole("status")).toContainText("points!");
+      const joke = practice(page).getByRole("region", { name: "Joke" });
+      jokes.push((await joke.locator("p").first().textContent())!);
+      if (i === 1) {
+        await joke.getByRole("button", { name: /reveal the punchline/ }).click();
+        await expect(joke.getByRole("button")).toHaveCount(0);
+        await expect(joke.locator("p")).toHaveCount(2);
+      }
+      if (i === 5) {
+        const dialog = page.getByRole("dialog");
+        await expect(dialog).toContainText("Bus Stop Bronze");
+        await page.screenshot({ path: `test-results/medal-${test.info().project.name}.png` });
+        await dismissMedals(page);
+      }
+      await page.getByRole("button", { name: /Next problem/ }).click();
+    }
+    expect(new Set(jokes).size).toBe(5);
+    // Warm-up with no hints or mistakes: 15 + 15 + 23 + 23 + 30.
+    await expect(points).toHaveText("106", { timeout: 5000 });
+    await expect(page.getByRole("link", { name: /5 in a row/ })).toBeVisible();
+
+    await page.reload();
+    await expect(points).toHaveText("106");
+
+    await page.getByRole("link", { name: /trophies/ }).click();
+    await expect(page.getByRole("heading", { name: /Trophy Cabinet/ })).toBeVisible();
+    await expect(page.getByRole("listitem", { name: /Bus Stop Bronze: earned/ })).toBeVisible();
+    await expect(page.getByRole("listitem", { name: /Streak Star: earned/ })).toBeVisible();
+    await expect(page.getByRole("listitem", { name: /Bus Stop Silver: locked/ })).toContainText("5 / 15");
+    await page.screenshot({ path: `test-results/trophies-${test.info().project.name}.png`, fullPage: true });
+
+    await page.getByRole("button", { name: "Reset progress" }).click();
+    await page.getByRole("button", { name: "No, keep it" }).click();
+    await expect(points).toHaveText("106");
+    await page.getByRole("button", { name: "Reset progress" }).click();
+    await page.getByRole("button", { name: "Yes, reset" }).click();
+    await expect(points).toHaveText("0");
+    await expect(page.getByRole("listitem", { name: /Bus Stop Bronze: locked/ })).toBeVisible();
+    await page.reload();
+    await expect(points).toHaveText("0");
+  });
+
+  test("siblings can each have their own profile", async ({ page }) => {
+    await page.goto("/topics/bus-stop-division");
+    await page.getByRole("button", { name: "Sound" }).click();
+    await page.getByRole("button", { name: /Warm-up/ }).click();
+    await solveCurrentProblem(page);
+    const points = page.getByTestId("points");
+    await expect(points).toHaveText("15");
+
+    await page.goto("/trophies");
+    await page.getByRole("textbox", { name: /Nickname/ }).fill("Ada");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("link", { name: /Ada's trophies/ })).toBeVisible();
+
+    await page.getByRole("button", { name: "+ Add player" }).click();
+    await page.getByRole("textbox", { name: /New player/ }).fill("Alan");
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Alan ·/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(points).toHaveText("0");
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: /^Alan ·/ })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: /^Ada ·/ }).click();
+    await expect(points).toHaveText("15");
+
+    await page.getByRole("button", { name: /^Alan ·/ }).click();
+    await page.getByRole("button", { name: "Remove Alan" }).click();
+    await page.getByRole("button", { name: "Yes, remove" }).click();
+    await expect(page.getByRole("button", { name: /^Alan ·/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Ada ·/ })).toHaveAttribute("aria-pressed", "true");
   });
 });
